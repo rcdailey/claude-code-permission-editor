@@ -1,0 +1,11 @@
+{
+  "allow": [
+    "Glob",
+    "Read",
+    "Write",
+    "mcp__ide__executeCode"
+  ],
+  "localConfig": {
+    "tempSettings": true
+  }
+}

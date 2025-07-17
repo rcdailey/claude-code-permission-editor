@@ -1,0 +1,13 @@
+{
+  "allow": [
+    "Edit",
+    "Grep",
+    "LS",
+    "Task",
+    "Write"
+  ],
+  "repoSpecificSetting": "test-repo",
+  "features": {
+    "enableSomething": false
+  }
+}

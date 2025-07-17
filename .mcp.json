@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "godoc": {
+      "type": "stdio",
+      "command": "godoc-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

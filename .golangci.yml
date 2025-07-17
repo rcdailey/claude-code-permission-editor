@@ -1,0 +1,54 @@
+version: 2
+
+run:
+  timeout: 5m
+
+linters-settings:
+  # Cyclomatic complexity - fail if > 10
+  gocyclo:
+    min-complexity: 10
+
+  # Line length - fail if > 100 chars
+  lll:
+    line-length: 100
+
+  # Function length - fail if > 60 lines or 40 statements
+  funlen:
+    lines: 60
+    statements: 40
+
+linters:
+  enable:
+    # Essential Go linters (enabled by default)
+    - govet           # Official Go static analyzer
+    - ineffassign     # Detects ineffectual assignments
+    - errcheck        # Check for unchecked errors
+    - staticcheck     # Advanced static analysis
+    - unused          # Find unused code
+
+    # Security and correctness
+    - gosec           # Security analysis
+    - bodyclose       # Check HTTP response body closure
+    - rowserrcheck    # Check sql.Rows.Err
+    - sqlclosecheck   # Check SQL resource closure
+
+    # Code quality and style
+    - misspell        # Fix spelling mistakes
+    - revive          # Go style guide enforcement
+    - gocritic        # Comprehensive diagnostics
+
+    # Complexity and maintainability
+    - gocyclo         # Cyclomatic complexity
+    - funlen          # Function length
+    - lll             # Line length
+    - gocognit        # Cognitive complexity
+    - nestif          # Nested if statements
+    - cyclop          # Alternative complexity checker
+
+    # Performance and best practices
+    - prealloc        # Suggest slice preallocation
+    - unconvert       # Remove unnecessary conversions
+    - wastedassign    # Find wasted assignments
+    - whitespace      # Whitespace issues
+    - goconst         # Find repeated strings for constants
+    - unparam         # Find unused function parameters
