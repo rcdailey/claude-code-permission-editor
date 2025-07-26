@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Component represents a UI component that can be managed by the layout engine
@@ -31,6 +32,7 @@ type ComponentWrapper struct {
 	position    Position
 	dirty       bool // true if component needs update
 	content     string // rendered content for absolute positioning
+	lipglossStyle *lipgloss.Style // optional Lipgloss style for spacing calculations
 }
 
 // Position represents the calculated position of a component
@@ -48,6 +50,7 @@ func NewBasicComponent(id string) *ComponentWrapper {
 		constraints: NewConstraintSet(),
 		position:    Position{X: 0, Y: 0},
 		dirty:       true,
+		lipglossStyle: nil, // No default style
 	}
 }
 
@@ -61,6 +64,7 @@ func NewComponentWrapper(id string, component interface{}, constraints ...Constr
 		constraints: NewConstraintSet(constraints...),
 		position:    Position{X: 0, Y: 0},
 		dirty:       true,
+		lipglossStyle: nil, // No default style
 	}
 }
 
@@ -179,6 +183,67 @@ func (cw *ComponentWrapper) HasContent() bool {
 // GetComponent returns the underlying component
 func (cw *ComponentWrapper) GetComponent() interface{} {
 	return cw.component
+}
+
+// SetLipglossStyle sets the Lipgloss style for this component
+func (cw *ComponentWrapper) SetLipglossStyle(style lipgloss.Style) {
+	cw.lipglossStyle = &style
+	cw.dirty = true
+}
+
+// GetLipglossStyle returns the Lipgloss style if set
+func (cw *ComponentWrapper) GetLipglossStyle() *lipgloss.Style {
+	return cw.lipglossStyle
+}
+
+// HasLipglossStyle returns true if a Lipgloss style has been set
+func (cw *ComponentWrapper) HasLipglossStyle() bool {
+	return cw.lipglossStyle != nil
+}
+
+// SetStyleConstraints synchronizes layout constraints with a Lipgloss style
+func (cw *ComponentWrapper) SetStyleConstraints(style lipgloss.Style, constraints ...Constraint) {
+	// Set the constraints
+	if len(constraints) > 0 {
+		cw.constraints = NewConstraintSet(constraints...)
+	}
+
+	// Apply constraints to the style using SpacingCalculator
+	enhancedStyle := DefaultSpacingCalculator.ApplySpacingToStyle(style, cw.constraints)
+	cw.SetLipglossStyle(enhancedStyle)
+}
+
+// SyncConstraintsToStyle updates the Lipgloss style to match current constraints
+func (cw *ComponentWrapper) SyncConstraintsToStyle() {
+	if cw.lipglossStyle != nil {
+		// Update the style with current constraints
+		updatedStyle := DefaultSpacingCalculator.ApplySpacingToStyle(*cw.lipglossStyle, cw.constraints)
+		cw.lipglossStyle = &updatedStyle
+		cw.dirty = true
+	}
+}
+
+// GetContentAreaWithStyle calculates content area using Lipgloss style if available
+func (cw *ComponentWrapper) GetContentAreaWithStyle() (width, height int) {
+	if cw.lipglossStyle != nil {
+		// Use Lipgloss GetFrameSize for accurate content area calculation
+		frameWidth, frameHeight := cw.lipglossStyle.GetFrameSize()
+		contentWidth := cw.width - frameWidth
+		contentHeight := cw.height - frameHeight
+
+		// Ensure minimum content area
+		if contentWidth < 1 {
+			contentWidth = 1
+		}
+		if contentHeight < 1 {
+			contentHeight = 1
+		}
+
+		return contentWidth, contentHeight
+	}
+
+	// Fallback to component dimensions if no style
+	return cw.width, cw.height
 }
 
 // applyDimensions applies the current dimensions to the underlying component

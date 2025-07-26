@@ -47,7 +47,7 @@ func DefaultEngineConfig() EngineConfig {
 	return EngineConfig{
 		MinTerminalWidth:  40,
 		MinTerminalHeight: 10,
-		DefaultSpacing:    1,
+		DefaultSpacing:    0, // Use constraint-based spacing instead
 		AutoRecalculate:   true,
 		DebugMode:         false,
 	}
@@ -506,6 +506,9 @@ func (le *LayoutEngine) calculateComponentWidth(constraints ConstraintSet) int {
 		}
 	}
 
+	// Apply horizontal margins and padding
+	width = le.applyHorizontalSpacing(width, constraints)
+
 	return width
 }
 
@@ -529,7 +532,12 @@ func (le *LayoutEngine) calculateComponentHeightWithContext(constraints Constrai
 		}
 	}
 
-	return le.applyMinHeightConstraintWithContext(constraints, height)
+	height = le.applyMinHeightConstraintWithContext(constraints, height)
+
+	// Apply vertical margins and padding
+	height = le.applyVerticalSpacing(height, constraints)
+
+	return height
 }
 
 
@@ -558,16 +566,26 @@ func (le *LayoutEngine) applyMinHeightConstraintWithContext(
 // layoutComponent positions a component and updates the layout result
 func (le *LayoutEngine) layoutComponent(
 	component *ComponentWrapper, width, height, currentY int, result *LayoutResult) int {
-	le.checkLayoutBounds(component, currentY, height, result)
+	constraints := component.Constraints()
+
+	// Get component margins for positioning
+	marginTop, _, marginBottom, _ := le.getComponentMargins(constraints)
+
+	// Apply top margin to current Y position
+	componentY := currentY + marginTop
+
+	le.checkLayoutBounds(component, componentY, height, result)
 
 	result.Components[component.ID()] = ComponentLayout{
 		X:      0,
-		Y:      currentY,
+		Y:      componentY,
 		Width:  width,
 		Height: height,
 	}
 
-	return currentY + height + le.config.DefaultSpacing
+	// Return next Y position accounting for component height, bottom margin, and default spacing
+	nextY := componentY + height + marginBottom + le.config.DefaultSpacing
+	return nextY
 }
 
 // separateAnchoredComponents separates components with anchor constraints from sequential ones
@@ -657,6 +675,80 @@ func (le *LayoutEngine) checkLayoutBounds(component *ComponentWrapper, currentY,
 		result.Warnings = append(result.Warnings,
 			fmt.Sprintf("Component '%s' may exceed terminal height", component.ID()))
 	}
+}
+
+// applyHorizontalSpacing applies margin and padding constraints to width using Lipgloss calculations
+func (le *LayoutEngine) applyHorizontalSpacing(width int, constraints ConstraintSet) int {
+	// Get margin values (normalized by Lipgloss)
+	_, marginRight, _, marginLeft := 0, 0, 0, 0
+	if marginConstraint, exists := constraints.Get(ConstraintMargin); exists {
+		if spacingConstraint, ok := marginConstraint.(SpacingConstraint); ok {
+			_, marginRight, _, marginLeft = CalculateMargins(spacingConstraint.Values())
+		}
+	}
+
+	// Get padding values (normalized by Lipgloss)
+	_, paddingRight, _, paddingLeft := 0, 0, 0, 0
+	if paddingConstraint, exists := constraints.Get(ConstraintPadding); exists {
+		if spacingConstraint, ok := paddingConstraint.(SpacingConstraint); ok {
+			_, paddingRight, _, paddingLeft = CalculatePadding(spacingConstraint.Values())
+		}
+	}
+
+	// Use SpacingCalculator to get total horizontal spacing
+	horizontalSpacing := DefaultSpacingCalculator.GetHorizontalSpacing(
+		marginLeft, marginRight, paddingLeft, paddingRight)
+
+	width -= horizontalSpacing
+
+	// Ensure minimum width
+	if width < 1 {
+		width = 1
+	}
+
+	return width
+}
+
+// applyVerticalSpacing applies margin and padding constraints to height using Lipgloss calculations
+func (le *LayoutEngine) applyVerticalSpacing(height int, constraints ConstraintSet) int {
+	// Get margin values (normalized by Lipgloss)
+	marginTop, _, marginBottom, _ := 0, 0, 0, 0
+	if marginConstraint, exists := constraints.Get(ConstraintMargin); exists {
+		if spacingConstraint, ok := marginConstraint.(SpacingConstraint); ok {
+			marginTop, _, marginBottom, _ = CalculateMargins(spacingConstraint.Values())
+		}
+	}
+
+	// Get padding values (normalized by Lipgloss)
+	paddingTop, _, paddingBottom, _ := 0, 0, 0, 0
+	if paddingConstraint, exists := constraints.Get(ConstraintPadding); exists {
+		if spacingConstraint, ok := paddingConstraint.(SpacingConstraint); ok {
+			paddingTop, _, paddingBottom, _ = CalculatePadding(spacingConstraint.Values())
+		}
+	}
+
+	// Use SpacingCalculator to get total vertical spacing
+	verticalSpacing := DefaultSpacingCalculator.GetVerticalSpacing(
+		marginTop, marginBottom, paddingTop, paddingBottom)
+
+	height -= verticalSpacing
+
+	// Ensure minimum height
+	if height < 1 {
+		height = 1
+	}
+
+	return height
+}
+
+// getComponentMargins extracts margin values from constraints using Lipgloss normalization
+func (le *LayoutEngine) getComponentMargins(constraints ConstraintSet) (top, right, bottom, left int) {
+	if marginConstraint, exists := constraints.Get(ConstraintMargin); exists {
+		if spacingConstraint, ok := marginConstraint.(SpacingConstraint); ok {
+			return CalculateMargins(spacingConstraint.Values())
+		}
+	}
+	return 0, 0, 0, 0
 }
 
 // applyLayout applies the calculated layout to all components

@@ -50,8 +50,8 @@ var (
 			Padding(0, 1)
 
 	// Updated header style with dark theme using inheritance
-	headerStyle = baseDarkStyle.
-			Margin(0, 0, 1, 0) // Add bottom margin to ensure separation
+	headerStyle = baseDarkStyle
+		// Removed bottom margin to eliminate gap with permissions panel
 
 	// Header with border variant for enhanced visual separation
 	headerWithBorderStyle = headerStyle.

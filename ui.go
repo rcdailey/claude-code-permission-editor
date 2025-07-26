@@ -25,7 +25,7 @@ func Init(_ *types.Model) tea.Cmd {
 
 // initializeLayoutEngine creates and configures the layout engine with given dimensions
 func initializeLayoutEngine(m *types.Model, width, height int) {
-	// Create layout engine with the provided terminal dimensions
+	// Create layout engine with default configuration
 	m.LayoutEngine = layout.NewLayoutEngine(width, height)
 	initializeLayout(m)
 }
@@ -34,16 +34,18 @@ func initializeLayoutEngine(m *types.Model, width, height int) {
 func initializeLayout(m *types.Model) {
 	// Create components for two-panel layout that fills terminal width
 
-	// Header component (fixed height, full width)
+	// Header component (fixed height, full width, bottom margin for separation)
 	headerComponent := layout.NewBasicComponent("header")
 	headerComponent.SetConstraints(
 		layout.Height(layout.Fixed(4)),
+		layout.Margin(0, 0, 1, 0), // Add bottom margin of 1 line
 	)
 
-	// Permissions panel (70% of remaining height, full width)
+	// Permissions panel (70% of remaining height, full width, bottom margin for separation)
 	permissionsComponent := layout.NewBasicComponent("permissions")
 	permissionsComponent.SetConstraints(
 		layout.Height(layout.Flex(0.7)),
+		layout.Margin(0, 0, 1, 0), // Add bottom margin of 1 line
 	)
 
 	// Duplicates panel (30% of remaining height, full width)
