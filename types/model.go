@@ -1,6 +1,10 @@
-package main
+package types
 
 import (
+	"sync"
+
+	"claude-permissions/layout"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/timer"
@@ -67,36 +71,35 @@ type Action struct {
 
 // Model represents the application state
 type Model struct {
+	// Thread safety
+	Mutex sync.RWMutex // Changed from: mutex sync.RWMutex
+
 	// Settings data
-	userLevel  SettingsLevel
-	repoLevel  SettingsLevel
-	localLevel SettingsLevel
+	UserLevel  SettingsLevel // Changed from: userLevel
+	RepoLevel  SettingsLevel // Changed from: repoLevel
+	LocalLevel SettingsLevel // Changed from: localLevel
 
 	// UI state
-	permissions []Permission
-	duplicates  []Duplicate
-	actions     []Action
-	activePanel int // 0=permissions, 1=duplicates, 2=actions
+	Permissions []Permission // Changed from: permissions
+	Duplicates  []Duplicate  // Changed from: duplicates
+	Actions     []Action     // Changed from: actions
+	ActivePanel int          // Changed from: activePanel
 
-	// Permissions panel
-	permissionsList list.Model
-	permissionsView viewport.Model // Keep for duplicates/actions panels
+	// Layout engine
+	LayoutEngine *layout.LayoutEngine // Changed from: layoutEngine
 
-	// Duplicates panel
-	duplicatesTable table.Model
-
-	// Actions panel
-	actionsView viewport.Model
-
-	// UI dimensions
-	width  int
-	height int
+	// UI components
+	PermissionsList list.Model    // Changed from: permissionsList
+	DuplicatesTable table.Model   // Changed from: duplicatesTable
+	ActionsView     viewport.Model // Changed from: actionsView
 
 	// Confirmation state
-	confirmMode bool
-	confirmText string
+	ConfirmMode bool   // Changed from: confirmMode
+	ConfirmText string // Changed from: confirmText
 
 	// Status message state
-	statusMessage string
-	statusTimer   timer.Model
+	StatusMessage string      // Changed from: statusMessage
+	StatusTimer   timer.Model // Changed from: statusTimer
 }
+
+// Note: tea.Model interface methods are now implemented by AppModel wrapper in main package

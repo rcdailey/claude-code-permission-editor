@@ -5,53 +5,59 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"claude-permissions/types"
 )
 
 // moveSelectedPermissions moves selected permissions to the specified level
-func (m *Model) moveSelectedPermissions(toLevel string) {
+func moveSelectedPermissions(m *types.Model, toLevel string) {
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
 	hasSelected := false
-	for i := range m.permissions {
-		if m.permissions[i].Selected {
+	for i := range m.Permissions {
+		if m.Permissions[i].Selected {
 			hasSelected = true
-			m.permissions[i].PendingMove = toLevel
+			m.Permissions[i].PendingMove = toLevel
 			// Update the list item to reflect the change
-			m.permissionsList.SetItem(i, m.permissions[i])
+			m.PermissionsList.SetItem(i, m.Permissions[i])
 		}
 	}
 
 	// If no selections, move current cursor item
 	if !hasSelected {
-		currentIdx := m.permissionsList.Index()
-		if currentIdx < len(m.permissions) {
-			m.permissions[currentIdx].PendingMove = toLevel
+		currentIdx := m.PermissionsList.Index()
+		if currentIdx < len(m.Permissions) {
+			m.Permissions[currentIdx].PendingMove = toLevel
 			// Update the list item to reflect the change
-			m.permissionsList.SetItem(currentIdx, m.permissions[currentIdx])
+			m.PermissionsList.SetItem(currentIdx, m.Permissions[currentIdx])
 		}
 	}
 
-	m.updateActionQueue()
+	updateActionQueue(m)
 }
 
 // setDuplicateKeepLevel sets which level to keep for a duplicate
-func (m *Model) setDuplicateKeepLevel(level string) {
-	cursor := m.duplicatesTable.Cursor()
-	if cursor < len(m.duplicates) {
-		m.duplicates[cursor].KeepLevel = level
-		m.updateDuplicatesTableRows()
-		m.updateActionQueue()
+func setDuplicateKeepLevel(m *types.Model, level string) {
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+	cursor := m.DuplicatesTable.Cursor()
+	if cursor < len(m.Duplicates) {
+		m.Duplicates[cursor].KeepLevel = level
+		updateDuplicatesTableRows(m)
+		updateActionQueue(m)
 	}
 }
 
 // updateActionQueue rebuilds the action queue based on current state
-func (m *Model) updateActionQueue() {
-	m.actions = []Action{}
+func updateActionQueue(m *types.Model) {
+	m.Actions = []types.Action{}
 
 	// Add duplicate resolutions
-	for _, dup := range m.duplicates {
+	for _, dup := range m.Duplicates {
 		for _, level := range dup.Levels {
 			if level != dup.KeepLevel {
-				m.actions = append(m.actions, Action{
-					Type:       ActionDuplicate,
+				m.Actions = append(m.Actions, types.Action{
+					Type:       types.ActionDuplicate,
 					Permission: dup.Name,
 					FromLevel:  level,
 					ToLevel:    "",
@@ -61,10 +67,10 @@ func (m *Model) updateActionQueue() {
 	}
 
 	// Add moves
-	for _, perm := range m.permissions {
+	for _, perm := range m.Permissions {
 		if perm.PendingMove != "" && perm.PendingMove != perm.CurrentLevel {
-			m.actions = append(m.actions, Action{
-				Type:       ActionMove,
+			m.Actions = append(m.Actions, types.Action{
+				Type:       types.ActionMove,
 				Permission: perm.Name,
 				FromLevel:  perm.CurrentLevel,
 				ToLevel:    perm.PendingMove,
@@ -74,32 +80,36 @@ func (m *Model) updateActionQueue() {
 }
 
 // clearPendingMoves clears all pending moves and selections
-func (m *Model) clearPendingMoves() {
-	for i := range m.permissions {
-		m.permissions[i].PendingMove = ""
-		m.permissions[i].Selected = false
+func clearPendingMoves(m *types.Model) {
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
+	for i := range m.Permissions {
+		m.Permissions[i].PendingMove = ""
+		m.Permissions[i].Selected = false
 	}
 
-	for i := range m.duplicates {
-		m.duplicates[i].Selected = false
+	for i := range m.Duplicates {
+		m.Duplicates[i].Selected = false
 	}
 }
 
 // generateConfirmationText creates the confirmation dialog text
-func (m Model) generateConfirmationText() string {
+func generateConfirmationText(m *types.Model) string {
+	m.Mutex.RLock()
+	defer m.Mutex.RUnlock()
 	var lines []string
 	lines = append(lines, "Confirm the following changes:")
 	lines = append(lines, "")
 
 	// Group actions by type
-	duplicateActions := []Action{}
-	moveActions := []Action{}
+	duplicateActions := []types.Action{}
+	moveActions := []types.Action{}
 
-	for _, action := range m.actions {
+	for _, action := range m.Actions {
 		switch action.Type {
-		case ActionDuplicate:
+		case types.ActionDuplicate:
 			duplicateActions = append(duplicateActions, action)
-		case ActionMove:
+		case types.ActionMove:
 			moveActions = append(moveActions, action)
 		}
 	}
@@ -128,15 +138,17 @@ func (m Model) generateConfirmationText() string {
 }
 
 // executeActions applies all queued actions to the settings files
-func (m Model) executeActions() error {
+func executeActions(m *types.Model) error {
+	m.Mutex.Lock()
+	defer m.Mutex.Unlock()
 	// Load current settings
-	userSettings, repoSettings, localSettings, err := m.loadAllSettings()
+	userSettings, repoSettings, localSettings, err := loadAllSettings(m)
 	if err != nil {
 		return err
 	}
 
 	// Apply actions
-	m.applyActionsToSettings(&userSettings, &repoSettings, &localSettings)
+	applyActionsToSettings(m, &userSettings, &repoSettings, &localSettings)
 
 	// Sort all permission lists
 	sort.Strings(userSettings.Allow)
@@ -144,83 +156,83 @@ func (m Model) executeActions() error {
 	sort.Strings(localSettings.Allow)
 
 	// Save settings
-	return m.saveAllSettings(userSettings, repoSettings, localSettings)
+	return saveAllSettings(m, userSettings, repoSettings, localSettings)
 }
 
 // loadAllSettings loads settings from all three levels
-func (m Model) loadAllSettings() (Settings, Settings, Settings, error) {
-	userSettings, err := loadSettingsFromFile(m.userLevel.Path)
-	if err != nil && m.userLevel.Exists {
-		return Settings{}, Settings{}, Settings{}, fmt.Errorf("failed to load user settings: %w", err)
+func loadAllSettings(m *types.Model) (types.Settings, types.Settings, types.Settings, error) {
+	userSettings, err := loadSettingsFromFile(m.UserLevel.Path)
+	if err != nil && m.UserLevel.Exists {
+		return types.Settings{}, types.Settings{}, types.Settings{}, fmt.Errorf("failed to load user settings: %w", err)
 	}
 
-	repoSettings, err := loadSettingsFromFile(m.repoLevel.Path)
-	if err != nil && m.repoLevel.Exists {
-		return Settings{}, Settings{}, Settings{}, fmt.Errorf("failed to load repo settings: %w", err)
+	repoSettings, err := loadSettingsFromFile(m.RepoLevel.Path)
+	if err != nil && m.RepoLevel.Exists {
+		return types.Settings{}, types.Settings{}, types.Settings{}, fmt.Errorf("failed to load repo settings: %w", err)
 	}
 
-	localSettings, err := loadSettingsFromFile(m.localLevel.Path)
-	if err != nil && m.localLevel.Exists {
-		return Settings{}, Settings{}, Settings{}, fmt.Errorf("failed to load local settings: %w", err)
+	localSettings, err := loadSettingsFromFile(m.LocalLevel.Path)
+	if err != nil && m.LocalLevel.Exists {
+		return types.Settings{}, types.Settings{}, types.Settings{}, fmt.Errorf("failed to load local settings: %w", err)
 	}
 
 	return userSettings, repoSettings, localSettings, nil
 }
 
 // applyActionsToSettings applies all actions to the provided settings
-func (m Model) applyActionsToSettings(userSettings, repoSettings, localSettings *Settings) {
-	for _, action := range m.actions {
+func applyActionsToSettings(m *types.Model, userSettings, repoSettings, localSettings *types.Settings) {
+	for _, action := range m.Actions {
 		switch action.Type {
-		case ActionDuplicate:
-			m.removePermissionFromLevel(action.FromLevel, action.Permission, userSettings, repoSettings, localSettings)
-		case ActionMove:
-			m.removePermissionFromLevel(action.FromLevel, action.Permission, userSettings, repoSettings, localSettings)
-			m.addPermissionToLevel(action.ToLevel, action.Permission, userSettings, repoSettings, localSettings)
+		case types.ActionDuplicate:
+			removePermissionFromLevel(action.FromLevel, action.Permission, userSettings, repoSettings, localSettings)
+		case types.ActionMove:
+			removePermissionFromLevel(action.FromLevel, action.Permission, userSettings, repoSettings, localSettings)
+			addPermissionToLevel(action.ToLevel, action.Permission, userSettings, repoSettings, localSettings)
 		}
 	}
 }
 
 // removePermissionFromLevel removes a permission from the specified level
-func (m Model) removePermissionFromLevel(
+func removePermissionFromLevel(
 	level, permission string,
-	userSettings, repoSettings, localSettings *Settings,
+	userSettings, repoSettings, localSettings *types.Settings,
 ) {
 	switch level {
-	case LevelUser:
+	case types.LevelUser:
 		userSettings.Allow = removePermission(userSettings.Allow, permission)
-	case LevelRepo:
+	case types.LevelRepo:
 		repoSettings.Allow = removePermission(repoSettings.Allow, permission)
-	case LevelLocal:
+	case types.LevelLocal:
 		localSettings.Allow = removePermission(localSettings.Allow, permission)
 	}
 }
 
 // addPermissionToLevel adds a permission to the specified level
-func (m Model) addPermissionToLevel(
+func addPermissionToLevel(
 	level, permission string,
-	userSettings, repoSettings, localSettings *Settings,
+	userSettings, repoSettings, localSettings *types.Settings,
 ) {
 	switch level {
-	case LevelUser:
+	case types.LevelUser:
 		userSettings.Allow = addPermission(userSettings.Allow, permission)
-	case LevelRepo:
+	case types.LevelRepo:
 		repoSettings.Allow = addPermission(repoSettings.Allow, permission)
-	case LevelLocal:
+	case types.LevelLocal:
 		localSettings.Allow = addPermission(localSettings.Allow, permission)
 	}
 }
 
 // saveAllSettings saves all settings to their respective files
-func (m Model) saveAllSettings(userSettings, repoSettings, localSettings Settings) error {
-	if err := saveSettingsToFile(m.userLevel.Path, userSettings); err != nil {
+func saveAllSettings(m *types.Model, userSettings, repoSettings, localSettings types.Settings) error {
+	if err := saveSettingsToFile(m.UserLevel.Path, userSettings); err != nil {
 		return fmt.Errorf("failed to save user settings: %w", err)
 	}
 
-	if err := saveSettingsToFile(m.repoLevel.Path, repoSettings); err != nil {
+	if err := saveSettingsToFile(m.RepoLevel.Path, repoSettings); err != nil {
 		return fmt.Errorf("failed to save repo settings: %w", err)
 	}
 
-	if err := saveSettingsToFile(m.localLevel.Path, localSettings); err != nil {
+	if err := saveSettingsToFile(m.LocalLevel.Path, localSettings); err != nil {
 		return fmt.Errorf("failed to save local settings: %w", err)
 	}
 

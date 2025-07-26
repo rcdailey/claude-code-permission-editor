@@ -39,8 +39,8 @@ go build -o claude-permissions .
 # Interactive mode (normal use)
 ./claude-permissions
 
-# Debug mode (see loaded data and UI layout)
-./claude-permissions --debug
+# With debug server for development
+./claude-permissions --debug-server
 
 # Override file paths for testing
 ./claude-permissions \

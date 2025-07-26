@@ -1,0 +1,14 @@
+command:
+  build: go build -gcflags="all=-N -l" -o ./tmp/claude-permissions .
+  exec: |
+    ./tmp/claude-permissions --debug-server --debug-port=8080 \
+      --user-file="testdata/user-settings.json" \
+      --repo-file="testdata/repo-settings.json" \
+      --local-file="testdata/local-settings.json"
+watch:
+  folders:
+  - "."
+  - "./types"
+  - "./debug"
+  - "./layout"
+  interval: 100ms

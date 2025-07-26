@@ -1,21 +1,17 @@
-version: 2
+version: "2"
 
 run:
   timeout: 5m
 
-linters-settings:
-  # Cyclomatic complexity - fail if > 10
-  gocyclo:
-    min-complexity: 10
-
-  # Line length - fail if > 100 chars
-  lll:
-    line-length: 100
-
-  # Function length - fail if > 60 lines or 40 statements
-  funlen:
-    lines: 60
-    statements: 40
+issues:
+  fix: true
+  exclude-rules:
+    # Disable complexity checks for debug package (contains necessary reflection code)
+    - path: debug/
+      linters:
+        - cyclop
+        - gocognit
+        - nestif
 
 linters:
   enable:
@@ -52,3 +48,15 @@ linters:
     - whitespace      # Whitespace issues
     - goconst         # Find repeated strings for constants
     - unparam         # Find unused function parameters
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - disable-stuttering-check
+    cyclop:
+      max-complexity: 10
+      skip-tests: true
+    gocognit:
+      min-complexity: 30

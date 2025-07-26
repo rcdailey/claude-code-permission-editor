@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 
+	"claude-permissions/types"
+
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,7 +26,7 @@ func (d PermissionDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return ni
 
 // Render renders a permission item in the list with styling and selection indicators.
 func (d PermissionDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	perm, ok := listItem.(Permission)
+	perm, ok := listItem.(types.Permission)
 	if !ok {
 		return
 	}
@@ -59,32 +61,34 @@ func (d PermissionDelegate) Render(w io.Writer, m list.Model, index int, listIte
 	// Use built-in list highlighting for filter matches
 	permName := perm.Name
 	if matches := m.MatchesForItem(index); len(matches) > 0 {
-		// Apply highlighting to matched characters
-		highlightStyle := lipgloss.NewStyle().
-			Background(lipgloss.Color("11")). // Yellow background
-			Foreground(lipgloss.Color("0"))   // Black text
-
-		permName = highlightMatches(perm.Name, matches, highlightStyle)
+		// Apply highlighting to matched characters using centralized style
+		permName = highlightMatches(perm.Name, matches, highlightedItemStyle)
 	}
 
 	// Create two-column layout
 	leftColumn := fmt.Sprintf("%s[%s] %s", cursor, selected, permName)
 	rightColumn := levelStyle.Render(fmt.Sprintf("[%s]", perm.CurrentLevel)) + moveArrow
 
-	// Calculate column widths based on list width
+	// Calculate column widths based on actual content area, accounting for panel borders
 	totalWidth := m.Width()
-	leftWidth := int(float64(totalWidth) * 0.7)
-	rightWidth := totalWidth - leftWidth
 
-	// Create columns with proper alignment
-	leftColumnStyled := lipgloss.NewStyle().
+	// Account for panel border/padding overhead (from panelStyle frame)
+	// Typical panel frame adds ~4 characters (2 left + 2 right borders/padding)
+	contentWidth := totalWidth - 4
+	if contentWidth < 40 { // Minimum usable width
+		contentWidth = 40
+	}
+
+	leftWidth := int(float64(contentWidth) * ColumnSplitRatio)
+	rightWidth := contentWidth - leftWidth
+
+	// Create columns with proper alignment using centralized styles
+	leftColumnStyled := leftColumnStyle.
 		Width(leftWidth).
-		AlignHorizontal(lipgloss.Left).
 		Render(leftColumn)
 
-	rightColumnStyled := lipgloss.NewStyle().
+	rightColumnStyled := rightColumnStyle.
 		Width(rightWidth).
-		AlignHorizontal(lipgloss.Right).
 		Render(rightColumn)
 
 	line := lipgloss.JoinHorizontal(lipgloss.Top, leftColumnStyled, rightColumnStyled)

@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"claude-permissions/types"
 )
 
 // loadUserLevel loads user-level settings with chezmoi integration
-func loadUserLevel() (SettingsLevel, error) {
+func loadUserLevel() (types.SettingsLevel, error) {
 	// Use command line override if provided
 	if *userFile != "" {
 		return loadSettingsLevel("User", *userFile)
@@ -25,7 +27,7 @@ func loadUserLevel() (SettingsLevel, error) {
 	// Fallback to standard path
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return SettingsLevel{}, err
+		return types.SettingsLevel{}, err
 	}
 
 	path := filepath.Join(home, ".claude", "settings.json")
@@ -60,7 +62,7 @@ func getChezmoidUserPath() string {
 }
 
 // loadRepoLevel loads repository-level settings
-func loadRepoLevel() (SettingsLevel, error) {
+func loadRepoLevel() (types.SettingsLevel, error) {
 	// Use command line override if provided
 	if *repoFile != "" {
 		return loadSettingsLevel("Repo", *repoFile)
@@ -68,7 +70,7 @@ func loadRepoLevel() (SettingsLevel, error) {
 
 	repoRoot, err := findGitRoot()
 	if err != nil {
-		return SettingsLevel{Name: LevelRepo, Path: "", Permissions: []string{}, Exists: false}, nil
+		return types.SettingsLevel{Name: types.LevelRepo, Path: "", Permissions: []string{}, Exists: false}, nil
 	}
 
 	path := filepath.Join(repoRoot, ".claude", "settings.json")
@@ -76,7 +78,7 @@ func loadRepoLevel() (SettingsLevel, error) {
 }
 
 // loadLocalLevel loads local-level settings
-func loadLocalLevel() (SettingsLevel, error) {
+func loadLocalLevel() (types.SettingsLevel, error) {
 	// Use command line override if provided
 	if *localFile != "" {
 		return loadSettingsLevel("Local", *localFile)
@@ -84,7 +86,7 @@ func loadLocalLevel() (SettingsLevel, error) {
 
 	repoRoot, err := findGitRoot()
 	if err != nil {
-		return SettingsLevel{Name: LevelLocal, Path: "", Permissions: []string{}, Exists: false}, nil
+		return types.SettingsLevel{Name: types.LevelLocal, Path: "", Permissions: []string{}, Exists: false}, nil
 	}
 
 	path := filepath.Join(repoRoot, ".claude", "settings.local.json")
@@ -116,8 +118,8 @@ func findGitRoot() (string, error) {
 }
 
 // loadSettingsLevel loads settings from a specific file
-func loadSettingsLevel(name, path string) (SettingsLevel, error) {
-	level := SettingsLevel{
+func loadSettingsLevel(name, path string) (types.SettingsLevel, error) {
+	level := types.SettingsLevel{
 		Name:        name,
 		Path:        path,
 		Permissions: []string{},
@@ -136,7 +138,7 @@ func loadSettingsLevel(name, path string) (SettingsLevel, error) {
 	}
 
 	// Parse JSON
-	var settings Settings
+	var settings types.Settings
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return level, fmt.Errorf("invalid JSON in %s: %w", path, err)
 	}
@@ -154,8 +156,8 @@ func loadSettingsLevel(name, path string) (SettingsLevel, error) {
 }
 
 // loadSettingsFromFile loads settings from a file path
-func loadSettingsFromFile(path string) (Settings, error) {
-	settings := Settings{Allow: []string{}}
+func loadSettingsFromFile(path string) (types.Settings, error) {
+	settings := types.Settings{Allow: []string{}}
 
 	if path == "" {
 		return settings, nil
@@ -189,7 +191,7 @@ func loadSettingsFromFile(path string) (Settings, error) {
 }
 
 // saveSettingsToFile saves settings to a file path
-func saveSettingsToFile(path string, settings Settings) error {
+func saveSettingsToFile(path string, settings types.Settings) error {
 	if path == "" {
 		return nil
 	}
@@ -223,14 +225,14 @@ func saveSettingsToFile(path string, settings Settings) error {
 }
 
 // consolidatePermissions creates a unified view of all permissions
-func consolidatePermissions(user, repo, local SettingsLevel) []Permission {
-	permMap := make(map[string]Permission)
+func consolidatePermissions(user, repo, local types.SettingsLevel) []types.Permission {
+	permMap := make(map[string]types.Permission)
 
 	// Add all permissions from all levels
 	for _, perm := range user.Permissions {
-		permMap[perm] = Permission{
+		permMap[perm] = types.Permission{
 			Name:         perm,
-			CurrentLevel: LevelUser,
+			CurrentLevel: types.LevelUser,
 			PendingMove:  "",
 			Selected:     false,
 		}
@@ -238,9 +240,9 @@ func consolidatePermissions(user, repo, local SettingsLevel) []Permission {
 
 	for _, perm := range repo.Permissions {
 		if _, exists := permMap[perm]; !exists {
-			permMap[perm] = Permission{
+			permMap[perm] = types.Permission{
 				Name:         perm,
-				CurrentLevel: LevelRepo,
+				CurrentLevel: types.LevelRepo,
 				PendingMove:  "",
 				Selected:     false,
 			}
@@ -249,9 +251,9 @@ func consolidatePermissions(user, repo, local SettingsLevel) []Permission {
 
 	for _, perm := range local.Permissions {
 		if _, exists := permMap[perm]; !exists {
-			permMap[perm] = Permission{
+			permMap[perm] = types.Permission{
 				Name:         perm,
-				CurrentLevel: LevelLocal,
+				CurrentLevel: types.LevelLocal,
 				PendingMove:  "",
 				Selected:     false,
 			}
@@ -259,7 +261,7 @@ func consolidatePermissions(user, repo, local SettingsLevel) []Permission {
 	}
 
 	// Convert to slice and sort
-	permissions := make([]Permission, 0, len(permMap))
+	permissions := make([]types.Permission, 0, len(permMap))
 	for _, perm := range permMap {
 		permissions = append(permissions, perm)
 	}
@@ -272,36 +274,36 @@ func consolidatePermissions(user, repo, local SettingsLevel) []Permission {
 }
 
 // detectDuplicates finds permissions that exist in multiple levels
-func detectDuplicates(user, repo, local SettingsLevel) []Duplicate {
+func detectDuplicates(user, repo, local types.SettingsLevel) []types.Duplicate {
 	permCount := make(map[string][]string)
 
 	// Count occurrences across levels
 	for _, perm := range user.Permissions {
-		permCount[perm] = append(permCount[perm], LevelUser)
+		permCount[perm] = append(permCount[perm], types.LevelUser)
 	}
 	for _, perm := range repo.Permissions {
-		permCount[perm] = append(permCount[perm], LevelRepo)
+		permCount[perm] = append(permCount[perm], types.LevelRepo)
 	}
 	for _, perm := range local.Permissions {
-		permCount[perm] = append(permCount[perm], LevelLocal)
+		permCount[perm] = append(permCount[perm], types.LevelLocal)
 	}
 
 	// Find duplicates
-	var duplicates []Duplicate
+	var duplicates []types.Duplicate
 	for perm, levels := range permCount {
 		if len(levels) > 1 {
 			// Default to keeping highest priority level (User > Repo > Local)
-			keepLevel := LevelLocal
+			keepLevel := types.LevelLocal
 			for _, level := range levels {
-				if level == LevelUser {
-					keepLevel = LevelUser
+				if level == types.LevelUser {
+					keepLevel = types.LevelUser
 					break
-				} else if level == LevelRepo && keepLevel != LevelUser {
-					keepLevel = LevelRepo
+				} else if level == types.LevelRepo && keepLevel != types.LevelUser {
+					keepLevel = types.LevelRepo
 				}
 			}
 
-			duplicates = append(duplicates, Duplicate{
+			duplicates = append(duplicates, types.Duplicate{
 				Name:      perm,
 				Levels:    levels,
 				KeepLevel: keepLevel,
