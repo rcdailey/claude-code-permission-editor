@@ -52,10 +52,11 @@ func initializeLayout(m *types.Model) {
 		layout.Height(layout.Flex(0.3)),
 	)
 
-	// Footer component (fixed height, full width)
+	// Footer component (fixed height, full width, anchored to bottom)
 	footerComponent := layout.NewBasicComponent("footer")
 	footerComponent.SetConstraints(
 		layout.Height(layout.Fixed(2)),
+		layout.Anchor(layout.AnchorBottom),
 	)
 
 	// Register components with layout engine
@@ -442,18 +443,34 @@ func View(m *types.Model) string {
 		statusPanel = statusMessageStyle.Render(m.StatusMessage)
 	}
 
-	// Build UI elements (2-panel layout)
-	elements := []string{header, permissionsPanel, duplicatesPanel}
-	if statusPanel != "" {
-		elements = append(elements, statusPanel)
+	// Set component content in layout engine and let it handle positioning
+	contentMap := map[string]string{
+		"header":      header,
+		"permissions": permissionsPanel,
+		"duplicates":  duplicatesPanel,
+		"footer":      footer,
 	}
-	elements = append(elements, footer)
 
-	// Join elements vertically without additional width constraints
-	// Each panel should already be sized correctly by the layout engine
-	content := lipgloss.JoinVertical(lipgloss.Left, elements...)
+	// Register content with layout engine
+	if err := m.LayoutEngine.SetAllComponentContent(contentMap); err != nil {
+		// Fallback to simple layout if registration fails
+		elements := []string{header, permissionsPanel, duplicatesPanel}
+		if statusPanel != "" {
+			elements = append(elements, statusPanel)
+		}
+		elements = append(elements, footer)
+		return lipgloss.JoinVertical(lipgloss.Left, elements...)
+	}
 
-	// Return content directly - no additional width wrapping needed
+	// Let layout engine handle absolute positioning and rendering
+	content := m.LayoutEngine.View()
+
+	// Add status panel as overlay if present
+	if statusPanel != "" {
+		// For now, prepend status panel - could be enhanced to overlay properly
+		content = statusPanel + "\n" + content
+	}
+
 	return content
 }
 
@@ -659,7 +676,6 @@ func maxInt(a, b int) int {
 	}
 	return b
 }
-
 
 
 // Note: Init, Update, View functions are now called directly by AppModel wrapper in main.go

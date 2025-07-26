@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -227,7 +228,7 @@ func (le *LayoutEngine) Update(msg tea.Msg) []tea.Cmd {
 	return le.components.UpdateAll(msg)
 }
 
-// View renders all components in their calculated positions
+// View renders all components in their calculated positions using absolute positioning
 func (le *LayoutEngine) View() string {
 	// Ensure layout is calculated
 	if le.needsRecalculation {
@@ -236,8 +237,89 @@ func (le *LayoutEngine) View() string {
 		}
 	}
 
-	// For now, return a simple vertical layout
-	// This will be enhanced in Phase 2 with proper positioning
+	// Use absolute positioning if layout has been calculated
+	if le.lastCalculation != nil {
+		return le.renderWithAbsolutePositioning()
+	}
+
+	// Fallback to simple vertical layout (should rarely happen)
+	return le.renderVerticalFallback()
+}
+
+// renderWithAbsolutePositioning renders components at their calculated absolute positions
+func (le *LayoutEngine) renderWithAbsolutePositioning() string {
+	screen := le.createEmptyScreen()
+	sortedComponents := le.getSortedComponentsByPosition()
+	le.placeComponentsOnScreen(screen, sortedComponents)
+	return le.joinScreenLines(screen)
+}
+
+// createEmptyScreen creates an empty screen buffer
+func (le *LayoutEngine) createEmptyScreen() []string {
+	screen := make([]string, le.terminalHeight)
+	for i := range screen {
+		screen[i] = ""
+	}
+	return screen
+}
+
+// getSortedComponentsByPosition returns components sorted by Y position for proper layering
+func (le *LayoutEngine) getSortedComponentsByPosition() []*ComponentWrapper {
+	components := le.components.GetInOrder()
+
+	// Sort by Y position (top to bottom)
+	for i := 0; i < len(components)-1; i++ {
+		for j := i + 1; j < len(components); j++ {
+			layout1, exists1 := le.lastCalculation.Components[components[i].ID()]
+			layout2, exists2 := le.lastCalculation.Components[components[j].ID()]
+
+			if exists1 && exists2 && layout1.Y > layout2.Y {
+				components[i], components[j] = components[j], components[i]
+			}
+		}
+	}
+
+	return components
+}
+
+// placeComponentsOnScreen places all components on the screen buffer at their calculated positions
+func (le *LayoutEngine) placeComponentsOnScreen(screen []string, components []*ComponentWrapper) {
+	for _, component := range components {
+		if layout, exists := le.lastCalculation.Components[component.ID()]; exists {
+			content := component.View()
+			if content != "" {
+				le.placeComponentContentAtPosition(screen, content, layout.Y)
+			}
+		}
+	}
+}
+
+// placeComponentContentAtPosition places component content at the specified Y position
+func (le *LayoutEngine) placeComponentContentAtPosition(screen []string, content string, y int) {
+	lines := strings.Split(content, "\n")
+
+	for lineIdx, line := range lines {
+		screenY := y + lineIdx
+		if screenY >= 0 && screenY < len(screen) {
+			screen[screenY] = line
+		}
+	}
+}
+
+// joinScreenLines joins screen lines into final output
+func (le *LayoutEngine) joinScreenLines(screen []string) string {
+	var resultBuilder strings.Builder
+	for i, line := range screen {
+		resultBuilder.WriteString(line)
+		if i < len(screen)-1 {
+			resultBuilder.WriteRune('\n')
+		}
+	}
+	return resultBuilder.String()
+}
+
+// renderVerticalFallback provides fallback vertical layout (for compatibility)
+func (le *LayoutEngine) renderVerticalFallback() string {
 	result := ""
 	for _, component := range le.components.GetInOrder() {
 		content := component.View()
@@ -248,7 +330,6 @@ func (le *LayoutEngine) View() string {
 			}
 		}
 	}
-
 	return result
 }
 
@@ -278,10 +359,17 @@ func (le *LayoutEngine) initializeLayoutResult() *LayoutResult {
 
 // processComponentsLayout processes all components and calculates their layout
 func (le *LayoutEngine) processComponentsLayout(components []*ComponentWrapper, result *LayoutResult) {
-	fixedHeight, flexComponents, totalFlexWeight := le.categorizeComponents(components)
-	availableHeight := le.calculateAvailableHeight(components, fixedHeight)
+	// Separate anchored components from sequential components
+	anchoredComponents, sequentialComponents := le.separateAnchoredComponents(components)
+
+	// Layout anchored components first
+	reservedSpace := le.layoutAnchoredComponents(anchoredComponents, result)
+
+	// Layout sequential components in remaining space
+	fixedHeight, flexComponents, totalFlexWeight := le.categorizeComponents(sequentialComponents)
+	availableHeight := le.calculateAvailableHeight(sequentialComponents, fixedHeight) - reservedSpace
 	flexHeights := le.calculateFlexHeights(flexComponents, totalFlexWeight, availableHeight)
-	le.layoutAllComponents(components, flexHeights, availableHeight, result)
+	le.layoutAllComponents(sequentialComponents, flexHeights, availableHeight, result)
 }
 
 // categorizeComponents separates fixed and flex components
@@ -482,6 +570,87 @@ func (le *LayoutEngine) layoutComponent(
 	return currentY + height + le.config.DefaultSpacing
 }
 
+// separateAnchoredComponents separates components with anchor constraints from sequential ones
+func (le *LayoutEngine) separateAnchoredComponents(
+	components []*ComponentWrapper) ([]*ComponentWrapper, []*ComponentWrapper) {
+	var anchored, sequential []*ComponentWrapper
+
+	for _, component := range components {
+		if le.hasAnchorConstraint(component) {
+			anchored = append(anchored, component)
+		} else {
+			sequential = append(sequential, component)
+		}
+	}
+
+	return anchored, sequential
+}
+
+// hasAnchorConstraint checks if a component has an anchor constraint
+func (le *LayoutEngine) hasAnchorConstraint(component *ComponentWrapper) bool {
+	constraints := component.Constraints()
+	_, exists := constraints.Get(ConstraintAnchor)
+	return exists
+}
+
+// layoutAnchoredComponents positions anchored components and returns reserved space
+func (le *LayoutEngine) layoutAnchoredComponents(components []*ComponentWrapper, result *LayoutResult) int {
+	reservedSpace := 0
+
+	for _, component := range components {
+		constraints := component.Constraints()
+		anchorConstraint, exists := constraints.Get(ConstraintAnchor)
+		if !exists {
+			continue
+		}
+
+		anchor, ok := anchorConstraint.(AnchorConstraint)
+		if !ok {
+			continue
+		}
+
+		// Calculate component dimensions
+		width := le.calculateComponentWidth(constraints)
+		height := le.calculateComponentHeightWithContext(constraints, le.terminalHeight)
+
+		// Position based on anchor
+		x, y := le.calculateAnchoredPosition(anchor.Position(), height)
+
+		result.Components[component.ID()] = ComponentLayout{
+			X:      x,
+			Y:      y,
+			Width:  width,
+			Height: height,
+		}
+
+		// Reserve space for bottom-anchored components
+		if anchor.Position() == AnchorBottom {
+			reservedSpace += height
+		}
+	}
+
+	return reservedSpace
+}
+
+// calculateAnchoredPosition calculates position based on anchor constraint
+//
+//nolint:unparam // X coordinate is always 0 for now, but function is prepared for future horizontal anchoring
+func (le *LayoutEngine) calculateAnchoredPosition(anchor AnchorPosition, height int) (int, int) {
+	const leftX = 0 // All components start at left edge for now
+
+	switch anchor {
+	case AnchorBottom:
+		return leftX, le.terminalHeight - height
+	case AnchorTop:
+		return leftX, 0
+	case AnchorCenter:
+		return leftX, (le.terminalHeight - height) / 2
+	// Add more anchor positions as needed
+	default:
+		return leftX, 0
+	}
+}
+
 // checkLayoutBounds checks if the component fits within terminal bounds
 func (le *LayoutEngine) checkLayoutBounds(component *ComponentWrapper, currentY, height int, result *LayoutResult) {
 	if currentY+height > le.terminalHeight {
@@ -595,6 +764,27 @@ func (le *LayoutEngine) AddComponentWrapper(wrapper *ComponentWrapper) error {
 		return le.Recalculate()
 	}
 
+	return nil
+}
+
+// SetComponentContent sets the rendered content for a component (used by UI layer)
+func (le *LayoutEngine) SetComponentContent(componentID string, content string) error {
+	wrapper, exists := le.components.Get(componentID)
+	if !exists {
+		return fmt.Errorf("component '%s' not found", componentID)
+	}
+
+	wrapper.SetContent(content)
+	return nil
+}
+
+// SetAllComponentContent sets content for multiple components at once
+func (le *LayoutEngine) SetAllComponentContent(contentMap map[string]string) error {
+	for componentID, content := range contentMap {
+		if err := le.SetComponentContent(componentID, content); err != nil {
+			return fmt.Errorf("failed to set content for component '%s': %w", componentID, err)
+		}
+	}
 	return nil
 }
 

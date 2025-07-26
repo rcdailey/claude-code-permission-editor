@@ -30,6 +30,7 @@ type ComponentWrapper struct {
 	constraints ConstraintSet
 	position    Position
 	dirty       bool // true if component needs update
+	content     string // rendered content for absolute positioning
 }
 
 // Position represents the calculated position of a component
@@ -141,6 +142,11 @@ func (cw *ComponentWrapper) Update(msg tea.Msg) tea.Cmd {
 
 // View renders the component
 func (cw *ComponentWrapper) View() string {
+	// Return stored content if available (for absolute positioning)
+	if cw.content != "" {
+		return cw.content
+	}
+
 	// Try to render the wrapped component if it supports the View method
 	if viewable, ok := cw.component.(interface {
 		View() string
@@ -150,6 +156,24 @@ func (cw *ComponentWrapper) View() string {
 
 	// If the component doesn't support View, return empty string
 	return ""
+}
+
+// SetContent sets the rendered content for this component (used for absolute positioning)
+func (cw *ComponentWrapper) SetContent(content string) {
+	if cw.content != content {
+		cw.content = content
+		cw.dirty = true
+	}
+}
+
+// GetContent returns the stored content
+func (cw *ComponentWrapper) GetContent() string {
+	return cw.content
+}
+
+// HasContent returns true if content has been set
+func (cw *ComponentWrapper) HasContent() bool {
+	return cw.content != ""
 }
 
 // GetComponent returns the underlying component
