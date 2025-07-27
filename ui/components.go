@@ -104,12 +104,6 @@ func NewContentComponent(width, height int, model *types.Model) *ContentComponen
 	}
 }
 
-// SetDimensions updates the content dimensions
-func (c *ContentComponent) SetDimensions(width, height int) {
-	c.width = width
-	c.height = height
-}
-
 // getConsistentContentWidth returns the standardized content width used across all screens
 // This ensures visual consistency when switching between screens with TAB
 func (c *ContentComponent) getConsistentContentWidth() int {

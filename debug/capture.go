@@ -253,10 +253,6 @@ func extractLayoutDiagnostics(model *types.Model) *LayoutResponse {
 				"width":  model.DuplicatesTable.Width(),
 				"height": model.DuplicatesTable.Height(),
 			},
-			"actions_view": map[string]int{
-				"width":  model.ActionsView.Width,
-				"height": model.ActionsView.Height,
-			},
 		},
 	}
 

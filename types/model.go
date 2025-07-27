@@ -5,7 +5,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/timer"
-	"github.com/charmbracelet/bubbles/viewport"
 )
 
 // Constants for settings levels
@@ -18,7 +17,6 @@ const (
 // Constants for action types
 const (
 	ActionDuplicate = "duplicate"
-	ActionMove      = "move"
 )
 
 // Constants for screen states
@@ -48,11 +46,6 @@ type Permission struct {
 	Selected      bool
 	Edited        bool
 	NewName       string
-}
-
-// FilterValue implements the list.Item interface for Permission.
-func (p Permission) FilterValue() string {
-	return p.Name
 }
 
 // Duplicate represents a duplicate permission across levels
@@ -105,8 +98,7 @@ type Model struct {
 	ColumnSelections [3]int // Selection index for each column
 
 	// UI components
-	DuplicatesTable table.Model    // Changed from: duplicatesTable
-	ActionsView     viewport.Model // Changed from: actionsView
+	DuplicatesTable table.Model // Changed from: duplicatesTable
 
 	// Confirmation state
 	ConfirmMode bool   // Changed from: confirmMode

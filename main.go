@@ -14,7 +14,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/timer"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -158,14 +157,11 @@ func loadAllLevels() (types.SettingsLevel, types.SettingsLevel, types.SettingsLe
 }
 
 // createUIComponents creates the UI components
-func createUIComponents(duplicates []types.Duplicate) (table.Model, viewport.Model) {
+func createUIComponents(duplicates []types.Duplicate) table.Model {
 	// Create table for duplicates panel
 	duplicatesTable := createDuplicatesTable(duplicates)
 
-	// Create viewport for actions panel
-	actionsView := viewport.New(0, 0)
-
-	return duplicatesTable, actionsView
+	return duplicatesTable
 }
 
 func initialModel() (*types.Model, error) {
@@ -180,7 +176,7 @@ func initialModel() (*types.Model, error) {
 	// Detect cross-level duplicates
 	duplicates := detectDuplicates(userLevel, repoLevel, localLevel)
 
-	duplicatesTable, actionsView := createUIComponents(duplicates)
+	duplicatesTable := createUIComponents(duplicates)
 
 	// Determine starting screen based on duplicates
 	startingScreen := types.ScreenOrganization
@@ -210,7 +206,6 @@ func initialModel() (*types.Model, error) {
 		Width:            0, // Will be set by terminal size message
 		Height:           0, // Will be set by terminal size message
 		DuplicatesTable:  duplicatesTable,
-		ActionsView:      actionsView,
 		ConfirmMode:      false,
 		ShowModal:        false,
 		StatusMessage:    "",
