@@ -2,11 +2,9 @@ package debug
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -31,6 +29,22 @@ type DebugServer struct {
 	shutdown     chan struct{}
 }
 
+// EndpointHandler represents a handler function for debug endpoints
+type EndpointHandler func(*DebugServer, http.ResponseWriter, *http.Request)
+
+// Endpoint registry for self-registering endpoints
+var (
+	endpointRegistry = make(map[string]EndpointHandler)
+	registryMutex    sync.RWMutex
+)
+
+// RegisterEndpoint allows endpoints to register themselves
+func RegisterEndpoint(path string, handler EndpointHandler) {
+	registryMutex.Lock()
+	defer registryMutex.Unlock()
+	endpointRegistry[path] = handler
+}
+
 // NewDebugServer creates a new debug server instance
 func NewDebugServer(
 	port int,
@@ -50,17 +64,16 @@ func NewDebugServer(
 
 	mux := http.NewServeMux()
 
-	// Register all endpoints
-	mux.HandleFunc("/snapshot", ds.handleSnapshot)
-	mux.HandleFunc("/state", ds.handleState)
-	// Layout diagnostics are included in the snapshot endpoint
-	mux.HandleFunc("/input", ds.handleInput)
-	mux.HandleFunc("/logs", ds.handleLogs)
-	mux.HandleFunc("/reset", ds.handleReset)
-	mux.HandleFunc("/launch-confirm-changes", ds.handleLaunchConfirmChanges)
-
-	// Health check endpoint
-	mux.HandleFunc("/health", ds.handleHealth)
+	// Register all self-registered endpoints
+	registryMutex.RLock()
+	for path, handler := range endpointRegistry {
+		// Create a closure to capture the handler and ds
+		capturedHandler := handler
+		mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+			capturedHandler(ds, w, r)
+		})
+	}
+	registryMutex.RUnlock()
 
 	ds.server = &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
@@ -116,238 +129,4 @@ func (ds *DebugServer) GetModel() *types.Model {
 // Logger returns the debug server's logger instance
 func (ds *DebugServer) Logger() *Logger {
 	return ds.logger
-}
-
-// SendInput sends a key input to the TUI program
-func (ds *DebugServer) SendInput(key string) error {
-	if ds.program == nil {
-		return fmt.Errorf("no program instance available")
-	}
-
-	msg, err := convertKeyToMessage(key)
-	if err != nil {
-		return err
-	}
-
-	ds.program.Send(msg)
-	ds.logger.LogEvent("input_sent", map[string]interface{}{
-		"key": key,
-	})
-
-	return nil
-}
-
-// convertKeyToMessage converts a string key to a tea.Msg
-func convertKeyToMessage(key string) (tea.Msg, error) {
-	switch key {
-	case "up", "arrow-up":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyUp}), nil
-	case "down", "arrow-down":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}), nil
-	case "left", "arrow-left":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyLeft}), nil
-	case "right", "arrow-right":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyRight}), nil
-	case "tab":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}), nil
-	case "enter":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}), nil
-	case "escape", "esc":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}), nil
-	case "space":
-		return tea.KeyPressMsg(tea.Key{Code: tea.KeySpace, Text: " "}), nil
-	default:
-		return convertRuneKeyToMessage(key)
-	}
-}
-
-// keyMappings maps key strings to their corresponding rune
-var keyMappings = map[string]rune{
-	"a": 'a', "A": 'a',
-	"u": 'u', "U": 'u',
-	"r": 'r', "R": 'r',
-	"l": 'l', "L": 'l',
-	"e": 'e', "E": 'e',
-	"c": 'c', "C": 'c',
-	"q": 'q', "Q": 'q',
-	"y": 'y', "Y": 'y',
-	"n": 'n', "N": 'n',
-	"/": '/',
-	"1": '1',
-	"2": '2',
-	"3": '3',
-}
-
-// convertRuneKeyToMessage converts single character keys to messages
-func convertRuneKeyToMessage(key string) (tea.Msg, error) {
-	if r, ok := keyMappings[key]; ok {
-		return tea.KeyPressMsg(tea.Key{Code: r, Text: string(r)}), nil
-	}
-	return nil, fmt.Errorf("unsupported key: %s", key)
-}
-
-// handleHealth provides a health check endpoint
-func (ds *DebugServer) handleHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":    "ok",
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	}); err != nil {
-		ds.logger.LogError("health_endpoint_error", err, nil)
-	}
-}
-
-// writeJSONResponse writes a JSON response with proper headers
-func (ds *DebugServer) writeJSONResponse(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "Failed to encode JSON response", http.StatusInternalServerError)
-		ds.logger.LogEvent("json_encode_error", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-}
-
-// writeErrorResponse writes a structured error response
-func (ds *DebugServer) writeErrorResponse(w http.ResponseWriter, message string, statusCode int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-
-	response := map[string]interface{}{
-		"error":     message,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		ds.logger.LogError("error_response_encode_failed", err, nil)
-	}
-	ds.logger.LogEvent("error_response", map[string]interface{}{
-		"message":     message,
-		"status_code": statusCode,
-	})
-}
-
-// getQueryParamBool safely gets a boolean query parameter with a default value
-func getQueryParamBool(r *http.Request, key string, defaultValue bool) bool {
-	if value := r.URL.Query().Get(key); value != "" {
-		if boolValue, err := strconv.ParseBool(value); err == nil {
-			return boolValue
-		}
-	}
-	return defaultValue
-}
-
-// LaunchConfirmChangesRequest represents the request to launch confirm changes screen
-type LaunchConfirmChangesRequest struct {
-	MockChanges struct {
-		PermissionMoves []struct {
-			Name string `json:"name"`
-			From string `json:"from"`
-			To   string `json:"to"`
-		} `json:"permission_moves"`
-		DuplicateResolutions []struct {
-			Name       string   `json:"name"`
-			KeepLevel  string   `json:"keep_level"`
-			RemoveFrom []string `json:"remove_from"`
-		} `json:"duplicate_resolutions"`
-	} `json:"mock_changes"`
-}
-
-// LaunchConfirmChangesResponse represents the response from launching confirm changes screen
-type LaunchConfirmChangesResponse struct {
-	Success        bool   `json:"success"`
-	PreviousScreen string `json:"previous_screen"`
-	NewScreen      string `json:"new_screen"`
-	ChangesApplied int    `json:"changes_applied"`
-	Error          string `json:"error,omitempty"`
-	Timestamp      string `json:"timestamp"`
-}
-
-// LaunchConfirmChangesMsg is a custom message for launching confirm changes screen
-type LaunchConfirmChangesMsg struct {
-	Request *LaunchConfirmChangesRequest
-}
-
-// handleLaunchConfirmChanges handles the POST /launch-confirm-changes endpoint
-func (ds *DebugServer) handleLaunchConfirmChanges(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Parse the request
-	var request LaunchConfirmChangesRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		ds.writeErrorResponse(w, "Invalid JSON in request body", http.StatusBadRequest)
-		return
-	}
-
-	// Check if program is available
-	if ds.program == nil {
-		ds.writeErrorResponse(w, "No program instance available", http.StatusInternalServerError)
-		return
-	}
-
-	// Capture previous screen
-	model := ds.GetModel()
-	if model == nil {
-		ds.writeErrorResponse(w, "No model available", http.StatusInternalServerError)
-		return
-	}
-
-	model.Mutex.RLock()
-	previousScreen := screenNumberToName(model.CurrentScreen)
-	model.Mutex.RUnlock()
-
-	// Send message to launch confirm changes screen
-	msg := LaunchConfirmChangesMsg{Request: &request}
-	ds.program.Send(msg)
-
-	// Give the application a moment to process the message
-	time.Sleep(100 * time.Millisecond)
-
-	// Capture new screen state
-	model.Mutex.RLock()
-	newScreen := screenNumberToName(model.CurrentScreen)
-	model.Mutex.RUnlock()
-
-	// Build response
-	response := LaunchConfirmChangesResponse{
-		Success:        true,
-		PreviousScreen: previousScreen,
-		NewScreen:      newScreen,
-		ChangesApplied: len(
-			request.MockChanges.PermissionMoves,
-		) + len(
-			request.MockChanges.DuplicateResolutions,
-		),
-		Timestamp: getCurrentTimestamp(),
-	}
-
-	ds.logger.LogEvent("launch_confirm_changes", map[string]interface{}{
-		"changes_applied": response.ChangesApplied,
-		"previous_screen": previousScreen,
-		"new_screen":      newScreen,
-	})
-
-	ds.writeJSONResponse(w, response)
-}
-
-// screenNumberToName converts screen number to name
-func screenNumberToName(screen int) string {
-	switch screen {
-	case types.ScreenDuplicates:
-		return "ScreenDuplicates"
-	case types.ScreenOrganization:
-		return "ScreenOrganization"
-	default:
-		return "Unknown"
-	}
 }

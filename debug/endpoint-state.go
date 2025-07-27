@@ -6,6 +6,10 @@ import (
 	"claude-permissions/types"
 )
 
+func init() {
+	RegisterEndpoint("/state", handleState)
+}
+
 // StateResponse represents the complete application state
 type StateResponse struct {
 	UI        UIState    `json:"ui"`
@@ -44,15 +48,15 @@ type FilesState struct {
 }
 
 // handleState handles the GET /state endpoint
-func (ds *DebugServer) handleState(w http.ResponseWriter, r *http.Request) {
+func handleState(ds *DebugServer, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed, ds.logger)
 		return
 	}
 
 	model := ds.GetModel()
 	if model == nil {
-		ds.writeErrorResponse(w, "Model not available", http.StatusInternalServerError)
+		writeErrorResponse(w, "Model not available", http.StatusInternalServerError, ds.logger)
 		return
 	}
 
@@ -65,7 +69,7 @@ func (ds *DebugServer) handleState(w http.ResponseWriter, r *http.Request) {
 		"duplicates_count":  response.Data.DuplicatesCount,
 	})
 
-	ds.writeJSONResponse(w, response)
+	writeJSONResponse(w, response, ds.logger)
 }
 
 // extractApplicationState extracts state information from the model using direct field access
@@ -155,18 +159,4 @@ func extractPendingEdits(model *types.Model) []string {
 	// Since we removed the action queue system, this now returns empty
 	// In the future, this could check for actual permission edit state
 	return edits
-}
-
-// panelNumberToName converts panel number to name
-func panelNumberToName(panel int) string {
-	switch panel {
-	case 0:
-		return "permissions"
-	case 1:
-		return "duplicates"
-	case 2:
-		return "actions"
-	default:
-		return "unknown"
-	}
 }

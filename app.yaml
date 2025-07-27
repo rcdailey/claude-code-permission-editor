@@ -7,10 +7,6 @@ command:
       --local-file="testdata/local-settings.json"
 watch:
   folders:
-  - "."
-  - "./types"
-  - "./debug"
-  - "./ui"
-  include_exts:
-  - "go"
+  - "**.go"
+  - app.yaml
   interval: 100ms

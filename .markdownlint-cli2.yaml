@@ -1,6 +1,9 @@
 # markdownlint-cli2 configuration
 # See: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
 
+# Always fix issues
+fix: true
+
 # Always use human-readable forms of rules instead of the `MD0123` format.
 config:
   line-length:
@@ -12,4 +15,4 @@ config:
 
 # Ignore files with .ignored.md extension
 ignores:
-  - "*.ignored.md"
+- "*.ignored.md"

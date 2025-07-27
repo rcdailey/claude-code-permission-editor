@@ -232,11 +232,28 @@ scripts/debug-api.sh state --host localhost --port 8081
 **Architecture**: Performance-optimized with compile-time type checking and proper thread
 synchronization for concurrent access to model state.
 
+### Debug File Organization
+
+Debug package uses prefix-based naming convention for visual separation:
+
+- **Endpoint files**: `endpoint-*.go` - HTTP endpoint handlers and related types
+  - `endpoint-health.go` - Health check endpoint
+  - `endpoint-state.go` - Application state inspection
+  - `endpoint-snapshot.go` - Screen capture and layout diagnostics
+  - `endpoint-input.go` - Input injection with state analysis
+  - `endpoint-logs.go` - Debug event logs retrieval
+  - `endpoint-reset.go` - Application state reset
+  - `endpoint-launch-confirm-changes.go` - Screen testing with mock data
+- **Infrastructure files**: No prefix - Core debug server components
+  - `server.go` - HTTP server and endpoint registration system
+  - `utils.go` - Shared utilities (JSON responses, timestamps, conversions)
+  - `logger.go` - Logging infrastructure and slog handler
+
 ### Debug Endpoint Patterns
 
 Debug endpoints follow consistent naming patterns:
 
-- **Screen testing**: `launch-<screen_name>` - Launch specific screens with mock data for testing
+- **Screen testing**: `/launch-<screen_name>` - Launch specific screens with mock data for testing
   - `/launch-confirm-changes` - Launch confirmation screen with mock permission moves and duplicate resolutions
   - Future: `/launch-duplicates`, `/launch-organization`, etc.
 - **State inspection**: `/state`, `/snapshot`, `/logs` - Inspect current application state

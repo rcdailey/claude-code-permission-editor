@@ -2,11 +2,18 @@ package debug
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"claude-permissions/types"
+
+	tea "github.com/charmbracelet/bubbletea/v2"
 )
+
+func init() {
+	RegisterEndpoint("/input", handleInput)
+}
 
 // InputRequest represents the input injection request
 type InputRequest struct {
@@ -33,36 +40,36 @@ type ModelStateCapture struct {
 }
 
 // handleInput handles the POST /input endpoint
-func (ds *DebugServer) handleInput(w http.ResponseWriter, r *http.Request) {
+func handleInput(ds *DebugServer, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed, ds.logger)
 		return
 	}
 
 	// Parse the input request
 	var request InputRequest
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-		ds.writeErrorResponse(w, "Invalid JSON in request body", http.StatusBadRequest)
+		writeErrorResponse(w, "Invalid JSON in request body", http.StatusBadRequest, ds.logger)
 		return
 	}
 
 	// Validate the key
 	if request.Key == "" {
-		ds.writeErrorResponse(w, "Key field is required", http.StatusBadRequest)
+		writeErrorResponse(w, "Key field is required", http.StatusBadRequest, ds.logger)
 		return
 	}
 
 	// Capture state before input
-	beforeState := ds.captureModelState()
+	beforeState := captureModelState(ds)
 
 	// Send the input to the application
-	err := ds.SendInput(request.Key)
+	err := sendInput(ds, request.Key)
 
 	// Give the application a moment to process the input
 	time.Sleep(50 * time.Millisecond)
 
 	// Capture state after input
-	afterState := ds.captureModelState()
+	afterState := captureModelState(ds)
 
 	// Build response
 	response := InputResponse{
@@ -86,28 +93,49 @@ func (ds *DebugServer) handleInput(w http.ResponseWriter, r *http.Request) {
 		"panel_change":  response.PreviousPanel != response.NewPanel,
 	})
 
-	ds.writeJSONResponse(w, response)
+	writeJSONResponse(w, response, ds.logger)
 }
 
-// handleReset handles the POST /reset endpoint
-func (ds *DebugServer) handleReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+// sendInput sends a key input to the TUI program
+func sendInput(ds *DebugServer, key string) error {
+	if ds.program == nil {
+		return fmt.Errorf("no program instance available")
 	}
 
-	// For now, this is a placeholder implementation
-	// In a full implementation, this would reset the application state
-	response := map[string]interface{}{
-		"message":   "Reset functionality not yet implemented",
-		"timestamp": getCurrentTimestamp(),
+	msg, err := convertKeyToMessage(key)
+	if err != nil {
+		return err
 	}
 
-	ds.logger.LogEvent("reset_requested", nil)
-	ds.writeJSONResponse(w, response)
+	ds.program.Send(msg)
+	ds.logger.LogEvent("input_sent", map[string]interface{}{
+		"key": key,
+	})
+
+	return nil
 }
 
 // captureModelState captures a snapshot of the current model state using direct field access
+func captureModelState(ds *DebugServer) ModelStateCapture {
+	model := ds.GetModel()
+	if model == nil {
+		return ModelStateCapture{}
+	}
+
+	model.Mutex.RLock()
+	defer model.Mutex.RUnlock()
+
+	return ModelStateCapture{
+		ActivePanel: model.ActivePanel, // Direct field access
+		SelectedItems: extractSelectedItemsForCapture(
+			model,
+		), // Extract from current column selection
+		FilterText:    "",                  // No filter in current UI implementation
+		ConfirmMode:   false,               // Removed confirm mode boolean
+		StatusMessage: model.StatusMessage, // Direct field access
+	}
+}
+
 // extractSelectedItemsForCapture extracts currently selected items for input capture
 func extractSelectedItemsForCapture(model *types.Model) []string {
 	var selectedItems []string
@@ -138,26 +166,6 @@ func extractSelectedItemsForCapture(model *types.Model) []string {
 	}
 
 	return selectedItems
-}
-
-func (ds *DebugServer) captureModelState() ModelStateCapture {
-	model := ds.GetModel()
-	if model == nil {
-		return ModelStateCapture{}
-	}
-
-	model.Mutex.RLock() // Add explicit locking
-	defer model.Mutex.RUnlock()
-
-	return ModelStateCapture{
-		ActivePanel: model.ActivePanel, // Direct field access
-		SelectedItems: extractSelectedItemsForCapture(
-			model,
-		), // Extract from current column selection
-		FilterText:    "",                  // No filter in current UI implementation
-		ConfirmMode:   false,               // Removed confirm mode boolean
-		StatusMessage: model.StatusMessage, // Direct field access
-	}
 }
 
 // analyzeStateChanges compares before and after state to identify changes
@@ -251,4 +259,53 @@ func stringSlicesEqual(a, b []string) bool {
 	}
 
 	return true
+}
+
+// convertKeyToMessage converts a string key to a tea.Msg
+func convertKeyToMessage(key string) (tea.Msg, error) {
+	switch key {
+	case "up", "arrow-up":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyUp}), nil
+	case "down", "arrow-down":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}), nil
+	case "left", "arrow-left":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyLeft}), nil
+	case "right", "arrow-right":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyRight}), nil
+	case "tab":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}), nil
+	case "enter":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}), nil
+	case "escape", "esc":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}), nil
+	case "space":
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeySpace, Text: " "}), nil
+	default:
+		return convertRuneKeyToMessage(key)
+	}
+}
+
+// keyMappings maps key strings to their corresponding rune
+var keyMappings = map[string]rune{
+	"a": 'a', "A": 'a',
+	"u": 'u', "U": 'u',
+	"r": 'r', "R": 'r',
+	"l": 'l', "L": 'l',
+	"e": 'e', "E": 'e',
+	"c": 'c', "C": 'c',
+	"q": 'q', "Q": 'q',
+	"y": 'y', "Y": 'y',
+	"n": 'n', "N": 'n',
+	"/": '/',
+	"1": '1',
+	"2": '2',
+	"3": '3',
+}
+
+// convertRuneKeyToMessage converts single character keys to messages
+func convertRuneKeyToMessage(key string) (tea.Msg, error) {
+	if r, ok := keyMappings[key]; ok {
+		return tea.KeyPressMsg(tea.Key{Code: r, Text: string(r)}), nil
+	}
+	return nil, fmt.Errorf("unsupported key: %s", key)
 }

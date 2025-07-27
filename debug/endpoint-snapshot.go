@@ -12,6 +12,10 @@ import (
 	"golang.org/x/term"
 )
 
+func init() {
+	RegisterEndpoint("/snapshot", handleSnapshot)
+}
+
 // ComponentPosition represents the calculated position and dimensions of a UI component
 type ComponentPosition struct {
 	X int `json:"x"`
@@ -50,14 +54,20 @@ type SnapshotResponse struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// No interfaces needed anymore - we use concrete types.Model
+// LayoutResponse represents layout diagnostics data for compatibility
+type LayoutResponse struct {
+	Terminal     [2]int                       `json:"terminal"`
+	Components   map[string]ComponentPosition `json:"components"`
+	Warnings     []string                     `json:"warnings"`
+	Calculations LayoutCalculations           `json:"calculations"`
+}
 
 // handleSnapshot handles the GET /snapshot endpoint
 //
 //nolint:funlen // Debug function complexity is acceptable for testing/debugging purposes
-func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
+func handleSnapshot(ds *DebugServer, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+		writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed, ds.logger)
 		return
 	}
 
@@ -67,7 +77,7 @@ func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 
 	model := ds.GetModel()
 	if model == nil {
-		ds.writeErrorResponse(w, "Model not available", http.StatusInternalServerError)
+		writeErrorResponse(w, "Model not available", http.StatusInternalServerError, ds.logger)
 		return
 	}
 
@@ -149,7 +159,7 @@ func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 		"color":  color,
 	})
 
-	ds.writeJSONResponse(w, response)
+	writeJSONResponse(w, response, ds.logger)
 }
 
 // getTerminalDimensions returns the current terminal dimensions
@@ -194,11 +204,6 @@ func estimateCursorPosition(content string) [2]int {
 	}
 
 	return [2]int{x, y}
-}
-
-// getCurrentTimestamp returns the current timestamp in RFC3339 format
-func getCurrentTimestamp() string {
-	return getTimestamp()
 }
 
 // visualWidth calculates the visual width of a string, accounting for ANSI codes
@@ -259,12 +264,4 @@ func extractLayoutDiagnostics(model *types.Model) *LayoutResponse {
 	}
 
 	return response
-}
-
-// LayoutResponse represents layout diagnostics data for compatibility
-type LayoutResponse struct {
-	Terminal     [2]int                       `json:"terminal"`
-	Components   map[string]ComponentPosition `json:"components"`
-	Warnings     []string                     `json:"warnings"`
-	Calculations LayoutCalculations           `json:"calculations"`
 }
