@@ -261,26 +261,27 @@ func (c *ContentComponent) getColumnPermissionStructs(level string) []types.Perm
 
 // renderPermissionItem renders a single permission with selection highlighting and origin indicator
 func (c *ContentComponent) renderPermissionItem(perm types.Permission, isSelected bool) string {
-	// Build the permission text with origin indicator if moved
-	permText := perm.Name
+	// Build origin indicator text if moved
+	var originText string
 	if perm.CurrentLevel != perm.OriginalLevel {
 		originStyle := c.getOriginStyle(perm.OriginalLevel)
 		// Only color the level name, not the whole "(from X)" text
 		coloredLevel := originStyle.Render(perm.OriginalLevel)
-		originText := OriginIndicatorStyle.Render(
-			" (from ",
+		originText = OriginIndicatorStyle.Render(
+			" (",
 		) + coloredLevel + OriginIndicatorStyle.Render(
 			")",
 		)
-		permText += originText
 	}
 
 	// Add selection highlighting if this item is selected
 	if isSelected {
-		return SelectedItemStyle.Render("> " + permText)
+		// Highlight only the permission name, not the origin indicator
+		highlightedName := SelectedItemStyle.Render("> " + perm.Name)
+		return highlightedName + originText
 	}
 
-	return "  " + permText
+	return "  " + perm.Name + originText
 }
 
 // getOriginStyle returns the appropriate style for the origin level indicator
