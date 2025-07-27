@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"claude-permissions/types"
@@ -36,12 +37,32 @@ func handleNonModalKeys(m *types.Model, msg tea.KeyMsg, key string) (*types.Mode
 		return handleEscapeKey(m), nil
 	}
 
+	// Handle ENTER key for confirmation screen transition
+	if key == "enter" || msg.Key().Code == tea.KeyEnter {
+		return handleEnterKey(m), nil
+	}
+
 	// Handle number keys for moving permissions
 	if key == "1" || key == "2" || key == "3" {
 		return handleNumberKeys(m, key), nil
 	}
 
 	return handleNavigationKeys(m, key), nil
+}
+
+// handleEnterKey handles ENTER key based on current screen
+func handleEnterKey(m *types.Model) *types.Model {
+	switch m.CurrentScreen {
+	case types.ScreenConfirmation:
+		// Return to organization screen
+		m.CurrentScreen = types.ScreenOrganization
+	case types.ScreenDuplicates, types.ScreenOrganization:
+		// Transition to confirmation screen if there are pending changes
+		if hasPendingChanges(m) {
+			m.CurrentScreen = types.ScreenConfirmation
+		}
+	}
+	return m
 }
 
 // handleTabKey switches between screens
@@ -95,7 +116,6 @@ func handleDuplicateResolution(m *types.Model, key string) *types.Model {
 		return m
 	}
 
-	duplicate := m.Duplicates[cursor]
 	var keepLevel string
 
 	switch key {
@@ -109,19 +129,6 @@ func handleDuplicateResolution(m *types.Model, key string) *types.Model {
 
 	// Update the duplicate's keep level
 	m.Duplicates[cursor].KeepLevel = keepLevel
-
-	// Create actions to remove duplicates from other levels
-	for _, level := range duplicate.Levels {
-		if level != keepLevel {
-			action := types.Action{
-				Type:       types.ActionDuplicate,
-				Permission: duplicate.Name,
-				FromLevel:  level,
-				ToLevel:    keepLevel,
-			}
-			m.Actions = append(m.Actions, action)
-		}
-	}
 
 	return m
 }
@@ -392,17 +399,19 @@ func renderConfirmation(m *types.Model) string {
 		Align(lipgloss.Center).
 		Width(m.Width).
 		Padding(1)
-	title := titleStyle.Render("Confirm Actions")
+	title := titleStyle.Render("Confirm Changes")
 
-	// Create action summary
-	if len(m.Actions) == 0 {
+	// Build list of pending changes
+	changeLines := buildPendingChangesList(m)
+
+	if len(changeLines) == 0 {
 		emptyStyle := lipgloss.NewStyle().
 			Width(m.Width).
 			Height(m.Height-6).
 			Align(lipgloss.Center, lipgloss.Center).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("8"))
-		content := emptyStyle.Render("No actions queued")
+		content := emptyStyle.Render("No pending changes")
 
 		instructions := "Press ESC to return to main screen"
 		instrStyle := lipgloss.NewStyle().
@@ -414,27 +423,16 @@ func renderConfirmation(m *types.Model) string {
 		return lipgloss.JoinVertical(lipgloss.Top, title, content, footer)
 	}
 
-	// Build action list
-	actionLines := make([]string, 0, len(m.Actions))
-	for i, action := range m.Actions {
-		actionText := formatAction(action)
-		prefix := "  "
-		if i == 0 { // Highlight first action for simplicity
-			prefix = "> "
-		}
-		actionLines = append(actionLines, prefix+actionText)
-	}
-
 	contentStyle := lipgloss.NewStyle().
 		Width(m.Width).
 		Height(m.Height - 6).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
 		Padding(1)
-	content := contentStyle.Render(strings.Join(actionLines, "\n"))
+	content := contentStyle.Render(strings.Join(changeLines, "\n"))
 
 	// Instructions
-	instructions := "ENTER: execute all actions | ESC: cancel and return"
+	instructions := "ENTER: save changes | ESC: cancel and return"
 	instrStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("7")).
 		Align(lipgloss.Center).
@@ -444,23 +442,44 @@ func renderConfirmation(m *types.Model) string {
 	return lipgloss.JoinVertical(lipgloss.Top, title, content, footer)
 }
 
-// formatAction formats an action for display
-func formatAction(action types.Action) string {
-	switch action.Type {
-	case "move":
-		return action.Permission + ": " + action.FromLevel + " → " + action.ToLevel
-	case "edit":
-		return action.Permission + " → " + action.NewName
-	case "duplicate":
-		return "Remove " + action.Permission + " from " + action.FromLevel
-	default:
-		return action.Permission + " (" + action.Type + ")"
+// buildPendingChangesList builds a list of pending changes for display
+func buildPendingChangesList(m *types.Model) []string {
+	var changeLines []string
+
+	// Check for moved permissions
+	for _, perm := range m.Permissions {
+		if perm.CurrentLevel != perm.OriginalLevel {
+			changeLines = append(changeLines,
+				fmt.Sprintf("• %s: %s → %s", perm.Name, perm.OriginalLevel, perm.CurrentLevel))
+		}
 	}
+
+	// Check for resolved duplicates
+	for _, dup := range m.Duplicates {
+		if dup.KeepLevel != "" {
+			otherLevels := []string{}
+			for _, level := range dup.Levels {
+				if level != dup.KeepLevel {
+					otherLevels = append(otherLevels, level)
+				}
+			}
+			if len(otherLevels) > 0 {
+				changeLines = append(changeLines,
+					fmt.Sprintf("• %s: Remove from %s (keep in %s)",
+						dup.Name, strings.Join(otherLevels, ", "), dup.KeepLevel))
+			}
+		}
+	}
+
+	return changeLines
 }
 
 // handleEscapeKey handles ESC key with screen-specific behavior
 func handleEscapeKey(m *types.Model) *types.Model {
 	switch m.CurrentScreen {
+	case types.ScreenConfirmation:
+		// On confirmation screen: ESC returns to the previous screen (organization)
+		m.CurrentScreen = types.ScreenOrganization
 	case types.ScreenDuplicates:
 		// On duplicates screen: ESC should cancel/exit (only if no pending changes)
 		if hasPendingChanges(m) {
@@ -527,8 +546,7 @@ func hasPendingChanges(m *types.Model) bool {
 		}
 	}
 
-	// Check if there are any queued actions
-	return len(m.Actions) > 0
+	return false
 }
 
 // resetAllChanges resets all pending permission moves and duplicate resolutions
@@ -549,9 +567,6 @@ func resetAllChanges(m *types.Model) *types.Model {
 	for i := range m.Duplicates {
 		m.Duplicates[i].KeepLevel = ""
 	}
-
-	// Clear all queued actions
-	m.Actions = []types.Action{}
 
 	// Reset column selections to 0
 	m.ColumnSelections = [3]int{0, 0, 0}

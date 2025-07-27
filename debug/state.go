@@ -30,7 +30,6 @@ type UIState struct {
 type DataState struct {
 	PermissionsCount int      `json:"permissions_count"`
 	DuplicatesCount  int      `json:"duplicates_count"`
-	ActionsQueued    int      `json:"actions_queued"`
 	PendingEdits     []string `json:"pending_edits"`
 }
 
@@ -64,7 +63,6 @@ func (ds *DebugServer) handleState(w http.ResponseWriter, r *http.Request) {
 		"active_panel":      response.UI.ActivePanel,
 		"permissions_count": response.Data.PermissionsCount,
 		"duplicates_count":  response.Data.DuplicatesCount,
-		"actions_queued":    response.Data.ActionsQueued,
 	})
 
 	ds.writeJSONResponse(w, response)
@@ -103,8 +101,7 @@ func extractDataState(model *types.Model) DataState {
 	return DataState{
 		PermissionsCount: len(model.Permissions), // Direct field access
 		DuplicatesCount:  len(model.Duplicates),  // Direct field access
-		ActionsQueued:    len(model.Actions),     // Direct field access
-		PendingEdits:     extractPendingEdits(model.Actions),
+		PendingEdits:     extractPendingEdits(model),
 	}
 }
 
@@ -152,14 +149,11 @@ func extractSelectedItems(model *types.Model) []string {
 	return selectedItems
 }
 
-// extractPendingEdits extracts pending edits from actions
-func extractPendingEdits(actions []types.Action) []string {
+// extractPendingEdits extracts pending edits from model
+func extractPendingEdits(model *types.Model) []string {
 	var edits []string
-	for _, action := range actions {
-		if action.Type == "edit" { // Direct field access
-			edits = append(edits, action.Permission+"→"+action.NewName)
-		}
-	}
+	// Since we removed the action queue system, this now returns empty
+	// In the future, this could check for actual permission edit state
 	return edits
 }
 

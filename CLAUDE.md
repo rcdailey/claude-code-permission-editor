@@ -54,17 +54,17 @@ scripts/dev.sh
 The application is designed around a **two-phase user workflow** that separates action planning from
 execution:
 
-1. **Phase 1 - Action Queuing** (Main Screen):
-   - **Permissions Panel**: Select permissions to move between levels (User/Repo/Local)
+1. **Phase 1 - Change Planning** (Main Screen):
+   - **Permissions Panel**: Move permissions between levels (User/Repo/Local) immediately
    - **Duplicates Panel**: Resolve conflicts by choosing which level to keep
-   - User navigates with TAB, selects items, queues up moves and resolutions
-   - No immediate file modifications - everything is staged
+   - User navigates with TAB, selects items, makes immediate changes to model state
+   - Changes are applied to in-memory model immediately
 
-2. **Phase 2 - Review & Execute** (Confirmation Screen):
-   - **Full-screen summary**: Clean, comprehensive view of all queued actions
-   - Shows duplicates to be removed, permissions to be moved, settings changes
-   - User confirms with ENTER to execute all actions, or ESC to return
-   - Only at this point are JSON files actually modified
+2. **Phase 2 - Review & Save** (Confirmation Screen):
+   - **Full-screen summary**: Clean, comprehensive view of all pending changes
+   - Shows duplicates to be removed, permissions that were moved, settings changes
+   - User confirms with ENTER to save changes to disk, or ESC to return
+   - Only at this point are JSON files actually written
 
 ### Design Rationale
 
@@ -91,14 +91,13 @@ execution:
 ### Core Components
 
 - **main.go**: Entry point, command-line parsing, model initialization, and tea.Model wrapper
-- **types/model.go**: Core data structures (Settings, Permission, Duplicate, Action, Model)
+- **types/model.go**: Core data structures (Settings, Permission, Duplicate, Model)
 - **settings.go**: Settings file loading, parsing, and git repository detection
 - **ui/**: Pure Bubble Tea + Lipgloss UI module using industry-standard patterns
   - `main.go`: Core UI rendering logic with `lipgloss.JoinVertical()` composition
   - `components.go`: UI components (header, footer, content) with dynamic sizing
   - `helpers.go`: Key handling and modal rendering using pure state management
   - `theme.go`: Centralized color palette and style definitions
-- **actions.go**: Action queue system for permission moves/edits
 - **interfaces.go**: Interface definitions for application components
 - **delegate.go**: Custom list delegate for permissions display
 - **logging.go**: Logging utilities and no-op handler
@@ -115,7 +114,7 @@ execution:
 
 1. **Startup**: Load settings from all three levels, consolidate permissions, detect duplicates
 2. **UI State**: Two panels (permissions, duplicates) with keyboard navigation
-3. **Action Queue**: Queue moves/edits before applying, with preview and confirmation
+3. **Immediate Changes**: Permission moves and duplicate resolutions happen immediately in memory
 4. **File Operations**: Only modify "allow" arrays in JSON files, preserve other settings
 
 ### TUI Design Patterns

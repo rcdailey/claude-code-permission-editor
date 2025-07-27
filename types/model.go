@@ -14,15 +14,11 @@ const (
 	LevelLocal = "Local"
 )
 
-// Constants for action types
-const (
-	ActionDuplicate = "duplicate"
-)
-
 // Constants for screen states
 const (
 	ScreenDuplicates = iota
 	ScreenOrganization
+	ScreenConfirmation
 )
 
 // Settings represents the structure of Claude settings.json
@@ -56,15 +52,6 @@ type Duplicate struct {
 	Selected  bool
 }
 
-// Action represents a queued action
-type Action struct {
-	Type       string // "move", "edit", "duplicate"
-	Permission string
-	FromLevel  string
-	ToLevel    string
-	NewName    string
-}
-
 // Model represents the application state
 type Model struct {
 	// Thread safety
@@ -78,7 +65,6 @@ type Model struct {
 	// UI state
 	Permissions []Permission // Changed from: permissions
 	Duplicates  []Duplicate  // Changed from: duplicates
-	Actions     []Action     // Changed from: actions
 	ActivePanel int          // Changed from: activePanel
 
 	// Screen management

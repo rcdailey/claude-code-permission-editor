@@ -243,8 +243,6 @@ const (
 	EventItemDeselected     = "item_deselected"
 	EventLayoutRecalculated = "layout_recalculated"
 	EventErrorOccurred      = "error_occurred"
-	EventActionQueued       = "action_queued"
-	EventActionExecuted     = "action_executed"
 	EventFilterActivated    = "filter_activated"
 	EventFilterCleared      = "filter_cleared"
 	EventConfirmModeEntered = "confirm_mode_entered"
@@ -284,25 +282,6 @@ func (l *Logger) LogLayoutRecalculated(width, height int, componentCount int) {
 		"width":           width,
 		"height":          height,
 		"component_count": componentCount,
-	})
-}
-
-// LogActionQueued logs an action being queued
-func (l *Logger) LogActionQueued(actionType, permission, fromLevel, toLevel string) {
-	l.LogEvent(EventActionQueued, map[string]interface{}{
-		"action_type": actionType,
-		"permission":  permission,
-		"from_level":  fromLevel,
-		"to_level":    toLevel,
-	})
-}
-
-// LogActionExecuted logs an action being executed
-func (l *Logger) LogActionExecuted(actionType, permission string, success bool) {
-	l.LogEvent(EventActionExecuted, map[string]interface{}{
-		"action_type": actionType,
-		"permission":  permission,
-		"success":     success,
 	})
 }
 

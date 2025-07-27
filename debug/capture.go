@@ -81,8 +81,8 @@ func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Fallback: try to get some meaningful content from the model state
 		model.Mutex.RLock()
-		content = fmt.Sprintf("Permissions: %d, Duplicates: %d, Actions: %d",
-			len(model.Permissions), len(model.Duplicates), len(model.Actions))
+		content = fmt.Sprintf("Permissions: %d, Duplicates: %d",
+			len(model.Permissions), len(model.Duplicates))
 		model.Mutex.RUnlock()
 	}
 

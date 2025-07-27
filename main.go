@@ -190,7 +190,6 @@ func initialModel() (*types.Model, error) {
 		LocalLevel:    localLevel,
 		Permissions:   permissions,
 		Duplicates:    duplicates,
-		Actions:       []types.Action{},
 		ActivePanel:   0,
 		CurrentScreen: startingScreen,
 		CleanupStats: struct {

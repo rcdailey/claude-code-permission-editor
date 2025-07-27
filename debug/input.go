@@ -29,7 +29,6 @@ type ModelStateCapture struct {
 	SelectedItems []string `json:"selected_items"`
 	FilterText    string   `json:"filter_text"`
 	ConfirmMode   bool     `json:"confirm_mode"`
-	ActionsCount  int      `json:"actions_count"`
 	StatusMessage string   `json:"status_message"`
 }
 
@@ -156,8 +155,7 @@ func (ds *DebugServer) captureModelState() ModelStateCapture {
 			model,
 		), // Extract from current column selection
 		FilterText:    "",                  // No filter in current UI implementation
-		ConfirmMode:   model.ConfirmMode,   // Direct field access
-		ActionsCount:  len(model.Actions),  // Direct field access
+		ConfirmMode:   false,               // Removed confirm mode boolean
 		StatusMessage: model.StatusMessage, // Direct field access
 	}
 }
@@ -199,12 +197,7 @@ func checkConfirmModeChange(before, after ModelStateCapture) []string {
 }
 
 func checkActionsCountChange(before, after ModelStateCapture) []string {
-	if before.ActionsCount != after.ActionsCount {
-		if after.ActionsCount > before.ActionsCount {
-			return []string{"action_added"}
-		}
-		return []string{"action_removed"}
-	}
+	// Actions removed from system - no longer tracking
 	return nil
 }
 
@@ -240,7 +233,6 @@ func checkSelectedItemsChange(before, after ModelStateCapture) []string {
 func statesEqual(a, b ModelStateCapture) bool {
 	return a.ActivePanel == b.ActivePanel &&
 		a.ConfirmMode == b.ConfirmMode &&
-		a.ActionsCount == b.ActionsCount &&
 		a.FilterText == b.FilterText &&
 		a.StatusMessage == b.StatusMessage &&
 		stringSlicesEqual(a.SelectedItems, b.SelectedItems)
