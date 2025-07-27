@@ -413,9 +413,8 @@ func renderConfirmation(m *types.Model) string {
 			BorderForeground(lipgloss.Color("8"))
 		content := emptyStyle.Render("No pending changes")
 
-		instructions := "Press ESC to return to main screen"
+		instructions := AccentStyle.Render("ESC") + " · Return to main screen"
 		instrStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("7")).
 			Align(lipgloss.Center).
 			Width(m.Width)
 		footer := instrStyle.Render(instructions)
@@ -431,10 +430,16 @@ func renderConfirmation(m *types.Model) string {
 		Padding(1)
 	content := contentStyle.Render(strings.Join(changeLines, "\n"))
 
-	// Instructions
-	instructions := "ENTER: save changes | ESC: cancel and return"
+	// Instructions using consistent footer styling
+	row1Keys := []string{
+		AccentStyle.Render("ENTER") + " · Execute all actions",
+		AccentStyle.Render("ESC") + " · Cancel and return",
+	}
+	row2Keys := []string{
+		AccentStyle.Render("Q") + " · Quit without saving",
+	}
+	instructions := strings.Join(row1Keys, "  |  ") + "\n" + strings.Join(row2Keys, "  |  ")
 	instrStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("7")).
 		Align(lipgloss.Center).
 		Width(m.Width)
 	footer := instrStyle.Render(instructions)
@@ -449,8 +454,11 @@ func buildPendingChangesList(m *types.Model) []string {
 	// Check for moved permissions
 	for _, perm := range m.Permissions {
 		if perm.CurrentLevel != perm.OriginalLevel {
+			// Apply level colors to level names
+			originalLevelStyled := getLevelStyledText(perm.OriginalLevel)
+			currentLevelStyled := getLevelStyledText(perm.CurrentLevel)
 			changeLines = append(changeLines,
-				fmt.Sprintf("• %s: %s → %s", perm.Name, perm.OriginalLevel, perm.CurrentLevel))
+				fmt.Sprintf("• %s: %s → %s", perm.Name, originalLevelStyled, currentLevelStyled))
 		}
 	}
 
@@ -460,13 +468,16 @@ func buildPendingChangesList(m *types.Model) []string {
 			otherLevels := []string{}
 			for _, level := range dup.Levels {
 				if level != dup.KeepLevel {
-					otherLevels = append(otherLevels, level)
+					// Apply level colors to level names
+					otherLevels = append(otherLevels, getLevelStyledText(level))
 				}
 			}
 			if len(otherLevels) > 0 {
+				// Apply level color to keep level
+				keepLevelStyled := getLevelStyledText(dup.KeepLevel)
 				changeLines = append(changeLines,
 					fmt.Sprintf("• %s: Remove from %s (keep in %s)",
-						dup.Name, strings.Join(otherLevels, ", "), dup.KeepLevel))
+						dup.Name, strings.Join(otherLevels, ", "), keepLevelStyled))
 			}
 		}
 	}
@@ -547,6 +558,20 @@ func hasPendingChanges(m *types.Model) bool {
 	}
 
 	return false
+}
+
+// getLevelStyledText returns a styled level name using the appropriate theme color
+func getLevelStyledText(level string) string {
+	switch level {
+	case types.LevelLocal:
+		return LocalLevelStyle.Render(level)
+	case types.LevelRepo:
+		return RepoLevelStyle.Render(level)
+	case types.LevelUser:
+		return UserLevelStyle.Render(level)
+	default:
+		return level
+	}
 }
 
 // resetAllChanges resets all pending permission moves and duplicate resolutions
