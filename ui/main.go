@@ -226,16 +226,11 @@ func renderOrganizationStatusText(m *types.Model) string {
 	columnPerms := getColumnPermissions(m)
 	if len(columnPerms) > 0 && m.ColumnSelections[m.FocusedColumn] < len(columnPerms) {
 		selectedPerm := columnPerms[m.ColumnSelections[m.FocusedColumn]]
-		originalLevel := selectedPerm.CurrentLevel
-		currentLocation := originalLevel
-		if selectedPerm.PendingMove != "" {
-			currentLocation = selectedPerm.PendingMove
-		}
 		return fmt.Sprintf(
 			"%s (originally %s → in %s)",
 			selectedPerm.Name,
-			originalLevel,
-			currentLocation,
+			selectedPerm.OriginalLevel,
+			selectedPerm.CurrentLevel,
 		)
 	}
 	return "Ready to organize permissions"

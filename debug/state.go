@@ -31,7 +31,6 @@ type DataState struct {
 	PermissionsCount int      `json:"permissions_count"`
 	DuplicatesCount  int      `json:"duplicates_count"`
 	ActionsQueued    int      `json:"actions_queued"`
-	PendingMoves     []string `json:"pending_moves"`
 	PendingEdits     []string `json:"pending_edits"`
 }
 
@@ -103,7 +102,6 @@ func extractDataState(model *types.Model) DataState {
 		PermissionsCount: len(model.Permissions), // Direct field access
 		DuplicatesCount:  len(model.Duplicates),  // Direct field access
 		ActionsQueued:    len(model.Actions),     // Direct field access
-		PendingMoves:     extractPendingMoves(model.Actions),
 		PendingEdits:     extractPendingEdits(model.Actions),
 	}
 }
@@ -118,17 +116,6 @@ func extractFilesState(model *types.Model) FilesState {
 		RepoPath:    model.RepoLevel.Path,    // Direct field access
 		LocalPath:   model.LocalLevel.Path,   // Direct field access
 	}
-}
-
-// extractPendingMoves extracts pending moves from actions
-func extractPendingMoves(actions []types.Action) []string {
-	var moves []string
-	for _, action := range actions {
-		if action.Type == types.ActionMove { // Direct field access
-			moves = append(moves, action.Permission+"→"+action.ToLevel)
-		}
-	}
-	return moves
 }
 
 // extractPendingEdits extracts pending edits from actions

@@ -9,6 +9,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// Level display constants to avoid goconst warnings
+const (
+	levelDisplayLocal = "Local"
+	levelDisplayRepo  = "Repo"
+	levelDisplayUser  = "User"
+)
+
 // HeaderComponent represents the top header section
 type HeaderComponent struct {
 	width   int
@@ -74,6 +81,20 @@ type ContentComponent struct {
 	model  *types.Model
 }
 
+// Layout constants for consistent width calculations across all screens
+const (
+	// ContentWidthBuffer is the buffer space subtracted from terminal width
+	// to ensure all content fits within terminal boundaries consistently.
+	//
+	// This value is critical for visual consistency when switching between screens.
+	// All screens must use getConsistentContentWidth() to ensure their rightmost
+	// borders align at the same position, preventing visual "jumps" during navigation.
+	//
+	// Value determined through testing to provide optimal balance between
+	// maximizing usable space and preventing terminal overflow.
+	ContentWidthBuffer = 6
+)
+
 // NewContentComponent creates a new content component
 func NewContentComponent(width, height int, model *types.Model) *ContentComponent {
 	return &ContentComponent{
@@ -87,6 +108,12 @@ func NewContentComponent(width, height int, model *types.Model) *ContentComponen
 func (c *ContentComponent) SetDimensions(width, height int) {
 	c.width = width
 	c.height = height
+}
+
+// getConsistentContentWidth returns the standardized content width used across all screens
+// This ensures visual consistency when switching between screens with TAB
+func (c *ContentComponent) getConsistentContentWidth() int {
+	return c.width - ContentWidthBuffer
 }
 
 // View renders the appropriate content based on current screen
@@ -107,10 +134,8 @@ func (c *ContentComponent) renderDuplicatesContent() string {
 		return ""
 	}
 
-	// Render the actual duplicates table with proper width accounting for border/padding
-	// Calculate content width by subtracting border and padding overhead
-	borderPaddingOverhead := 4 // 2 for border + 2 for padding (left+right)
-	contentWidth := c.width - borderPaddingOverhead
+	// Use centralized width calculation for consistency across all screens
+	contentWidth := c.getConsistentContentWidth()
 	if contentWidth < 20 { // Minimum usable width
 		contentWidth = 20
 	}
@@ -138,17 +163,14 @@ func (c *ContentComponent) renderOrganizationContent() string {
 		return ""
 	}
 
-	// Calculate column width accounting for border and padding overhead
-	// Each column has border (2 chars) + padding (2 chars) = 4 chars overhead
-	borderPaddingPerColumn := 4
-	totalOverhead := borderPaddingPerColumn * 3 // 3 columns
-	availableContentWidth := c.width - totalOverhead
-	columnWidth := availableContentWidth / 3
+	// Use centralized width calculation and divide among columns
+	totalContentWidth := c.getConsistentContentWidth()
+	columnWidth := totalContentWidth / 3
 
 	// Render each column
-	localColumn := c.renderPermissionColumn("Local", columnWidth, 0)
-	repoColumn := c.renderPermissionColumn("Repo", columnWidth, 1)
-	userColumn := c.renderPermissionColumn("User", columnWidth, 2)
+	localColumn := c.renderPermissionColumn(levelDisplayLocal, columnWidth, 0)
+	repoColumn := c.renderPermissionColumn(levelDisplayRepo, columnWidth, 1)
+	userColumn := c.renderPermissionColumn(levelDisplayUser, columnWidth, 2)
 
 	// Join horizontally using pure lipgloss
 	return lipgloss.JoinHorizontal(lipgloss.Top, localColumn, repoColumn, userColumn)
@@ -178,19 +200,19 @@ func (c *ContentComponent) renderColumnHeader(level string) string {
 	var count int
 
 	switch level {
-	case "Local":
+	case levelDisplayLocal:
 		count = len(c.model.LocalLevel.Permissions)
 		headerStyle = LocalLevelStyle.
 			Background(lipgloss.Color(ColorBackground)).
 			Padding(0, 1).
 			Margin(0, 0, 1, 0)
-	case "Repo":
+	case levelDisplayRepo:
 		count = len(c.model.RepoLevel.Permissions)
 		headerStyle = RepoLevelStyle.
 			Background(lipgloss.Color(ColorBackground)).
 			Padding(0, 1).
 			Margin(0, 0, 1, 0)
-	case "User":
+	case levelDisplayUser:
 		count = len(c.model.UserLevel.Permissions)
 		headerStyle = UserLevelStyle.
 			Background(lipgloss.Color(ColorBackground)).
@@ -204,34 +226,79 @@ func (c *ContentComponent) renderColumnHeader(level string) string {
 
 // renderColumnContent creates the content for a column
 func (c *ContentComponent) renderColumnContent(level string, columnIndex int, focused bool) string {
-	levelPermissions := c.getLevelPermissions(level)
+	levelPermissions := c.getColumnPermissionStructs(level)
 
 	var permissionItems []string
 	if len(levelPermissions) == 0 {
 		permissionItems = append(permissionItems, "No permissions")
 	} else {
 		for i, perm := range levelPermissions {
-			prefix := " "
-			if focused && i == c.model.ColumnSelections[columnIndex] {
-				prefix = ">"
-			}
-			permissionItems = append(permissionItems, prefix+" "+perm)
+			isSelected := focused && i == c.model.ColumnSelections[columnIndex]
+			permItem := c.renderPermissionItem(perm, isSelected)
+			permissionItems = append(permissionItems, permItem)
 		}
 	}
 
 	return strings.Join(permissionItems, "\n")
 }
 
-// getLevelPermissions returns permissions for the specified level
-func (c *ContentComponent) getLevelPermissions(level string) []string {
+// getColumnPermissionStructs returns Permission structs for the specified level
+func (c *ContentComponent) getColumnPermissionStructs(level string) []types.Permission {
+	var targetLevel string
 	switch level {
-	case "Local":
-		return c.model.LocalLevel.Permissions
-	case "Repo":
-		return c.model.RepoLevel.Permissions
-	case "User":
-		return c.model.UserLevel.Permissions
+	case levelDisplayLocal:
+		targetLevel = types.LevelLocal
+	case levelDisplayRepo:
+		targetLevel = types.LevelRepo
+	case levelDisplayUser:
+		targetLevel = types.LevelUser
 	default:
-		return []string{}
+		return []types.Permission{}
+	}
+
+	var columnPerms []types.Permission
+	for _, perm := range c.model.Permissions {
+		if perm.CurrentLevel == targetLevel {
+			columnPerms = append(columnPerms, perm)
+		}
+	}
+	return columnPerms
+}
+
+// renderPermissionItem renders a single permission with selection highlighting and origin indicator
+func (c *ContentComponent) renderPermissionItem(perm types.Permission, isSelected bool) string {
+	// Build the permission text with origin indicator if moved
+	permText := perm.Name
+	if perm.CurrentLevel != perm.OriginalLevel {
+		originStyle := c.getOriginStyle(perm.OriginalLevel)
+		// Only color the level name, not the whole "(from X)" text
+		coloredLevel := originStyle.Render(perm.OriginalLevel)
+		originText := OriginIndicatorStyle.Render(
+			" (from ",
+		) + coloredLevel + OriginIndicatorStyle.Render(
+			")",
+		)
+		permText += originText
+	}
+
+	// Add selection highlighting if this item is selected
+	if isSelected {
+		return SelectedItemStyle.Render("> " + permText)
+	}
+
+	return "  " + permText
+}
+
+// getOriginStyle returns the appropriate style for the origin level indicator
+func (c *ContentComponent) getOriginStyle(level string) lipgloss.Style {
+	switch level {
+	case types.LevelLocal:
+		return LocalLevelStyle
+	case types.LevelRepo:
+		return RepoLevelStyle
+	case types.LevelUser:
+		return UserLevelStyle
+	default:
+		return TextStyle
 	}
 }

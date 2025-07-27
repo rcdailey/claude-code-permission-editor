@@ -43,12 +43,12 @@ type SettingsLevel struct {
 
 // Permission represents a permission with its current level and pending operations
 type Permission struct {
-	Name         string
-	CurrentLevel string
-	PendingMove  string
-	Selected     bool
-	Edited       bool
-	NewName      string
+	Name          string
+	CurrentLevel  string
+	OriginalLevel string // Track the original level for moved permissions
+	Selected      bool
+	Edited        bool
+	NewName       string
 }
 
 // FilterValue implements the list.Item interface for Permission.

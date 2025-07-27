@@ -177,20 +177,20 @@ func consolidatePermissions(user, repo, local types.SettingsLevel) []types.Permi
 	// Add all permissions from all levels
 	for _, perm := range user.Permissions {
 		permMap[perm] = types.Permission{
-			Name:         perm,
-			CurrentLevel: types.LevelUser,
-			PendingMove:  "",
-			Selected:     false,
+			Name:          perm,
+			CurrentLevel:  types.LevelUser,
+			OriginalLevel: types.LevelUser,
+			Selected:      false,
 		}
 	}
 
 	for _, perm := range repo.Permissions {
 		if _, exists := permMap[perm]; !exists {
 			permMap[perm] = types.Permission{
-				Name:         perm,
-				CurrentLevel: types.LevelRepo,
-				PendingMove:  "",
-				Selected:     false,
+				Name:          perm,
+				CurrentLevel:  types.LevelRepo,
+				OriginalLevel: types.LevelRepo,
+				Selected:      false,
 			}
 		}
 	}
@@ -198,10 +198,10 @@ func consolidatePermissions(user, repo, local types.SettingsLevel) []types.Permi
 	for _, perm := range local.Permissions {
 		if _, exists := permMap[perm]; !exists {
 			permMap[perm] = types.Permission{
-				Name:         perm,
-				CurrentLevel: types.LevelLocal,
-				PendingMove:  "",
-				Selected:     false,
+				Name:          perm,
+				CurrentLevel:  types.LevelLocal,
+				OriginalLevel: types.LevelLocal,
+				Selected:      false,
 			}
 		}
 	}

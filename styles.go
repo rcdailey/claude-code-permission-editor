@@ -27,9 +27,6 @@ var (
 	highlightedItemStyle = lipgloss.NewStyle().
 				Background(lipgloss.Color("#FCD34D")). // Bright yellow
 				Foreground(lipgloss.Color("#1F2937"))  // Dark text
-
-	// Arrow style for move operations
-	moveArrowStyle = CreateLevelStyle("9") // Orange
 )
 
 // CreateLevelStyle creates a style for different permission levels

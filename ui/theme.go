@@ -71,6 +71,18 @@ var (
 			Foreground(lipgloss.Color(ColorText)).
 			Background(lipgloss.Color(ColorStatusBar)).
 			Padding(0, 1)
+
+	// Selection highlighting styles for currently selected item
+	SelectedItemStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("240")).
+				Foreground(lipgloss.Color(ColorAccent)).
+				Bold(true).
+				Padding(0, 1)
+
+	// Origin indicator styles for moved permissions
+	OriginIndicatorStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("8")).
+				Italic(true)
 )
 
 // Level-specific styles for consistent color coding

@@ -62,14 +62,10 @@ func (d PermissionDelegate) formatLeftColumn(
 	return fmt.Sprintf("%s[%s] %s", cursor, selected, permName)
 }
 
-// formatRightColumn creates the right column with level and move indicators
+// formatRightColumn creates the right column with level indicators
 func (d PermissionDelegate) formatRightColumn(perm types.Permission) string {
 	levelStyle := d.getLevelStyle(perm.CurrentLevel)
 	rightColumn := levelStyle.Render(fmt.Sprintf("[%s]", perm.CurrentLevel))
-
-	if perm.PendingMove != "" {
-		rightColumn += moveArrowStyle.Render(fmt.Sprintf(" → [%s]", perm.PendingMove))
-	}
 
 	return rightColumn
 }
