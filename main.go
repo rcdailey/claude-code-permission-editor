@@ -206,7 +206,6 @@ func initialModel() (*types.Model, error) {
 		Height:           0, // Will be set by terminal size message
 		DuplicatesTable:  duplicatesTable,
 		ConfirmMode:      false,
-		ShowModal:        false,
 		StatusMessage:    "",
 		StatusTimer:      timer.New(3 * time.Second),
 	}

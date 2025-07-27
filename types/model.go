@@ -18,7 +18,6 @@ const (
 const (
 	ScreenDuplicates = iota
 	ScreenOrganization
-	ScreenConfirmation
 )
 
 // Settings represents the structure of Claude settings.json
@@ -91,10 +90,7 @@ type Model struct {
 	ConfirmText string // Changed from: confirmText
 
 	// Modal state
-	ShowModal   bool
-	ModalTitle  string
-	ModalBody   string
-	ModalAction string // "continue" or "exit"
+	ActiveModal Modal // Unified modal system
 
 	// Status message state
 	StatusMessage string      // Changed from: statusMessage

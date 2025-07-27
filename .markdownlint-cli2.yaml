@@ -9,3 +9,7 @@ config:
     code_blocks: false
     tables: false
     headings: false
+
+# Ignore files with .ignored.md extension
+ignores:
+  - "*.ignored.md"

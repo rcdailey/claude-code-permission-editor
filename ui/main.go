@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"claude-permissions/debug"
 	"claude-permissions/types"
 
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -32,6 +33,9 @@ func Update(m *types.Model, msg tea.Msg) (*types.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return handleKeyPress(m, msg)
 
+	case debug.LaunchConfirmChangesMsg:
+		return handleLaunchConfirmChanges(m, msg), nil
+
 	default:
 		return m, nil
 	}
@@ -47,15 +51,11 @@ func View(m *types.Model) string {
 		return "Initializing layout... (waiting for terminal size)"
 	}
 
-	var baseContent string
-	if m.CurrentScreen == types.ScreenConfirmation {
-		baseContent = renderConfirmation(m)
-	} else {
-		baseContent = renderMainLayout(m)
-	}
+	// Always render main layout as base content - modals will overlay on top
+	baseContent := renderMainLayout(m)
 
 	// Overlay modal if shown
-	if m.ShowModal {
+	if m.ActiveModal != nil {
 		return renderModal(m, baseContent)
 	}
 
@@ -172,14 +172,6 @@ func renderFooterContent(m *types.Model) string {
 			AccentStyle.Render("ENTER") + " · Save & exit",
 			AccentStyle.Render("ESC") + " · Reset changes",
 		}
-	case types.ScreenConfirmation:
-		row1Keys = []string{
-			AccentStyle.Render("ENTER") + " · Execute all actions",
-			AccentStyle.Render("ESC") + " · Cancel and return",
-		}
-		row2Keys = []string{
-			AccentStyle.Render("Q") + " · Quit without saving",
-		}
 	default:
 		// Generic footer
 		row1Keys = []string{
@@ -205,9 +197,6 @@ func renderStatusBarContent(m *types.Model) string {
 		statusText = renderDuplicatesStatusText(m)
 	case types.ScreenOrganization:
 		statusText = renderOrganizationStatusText(m)
-	case types.ScreenConfirmation:
-		changeCount := countPendingChanges(m)
-		statusText = fmt.Sprintf("Review %d pending changes before saving", changeCount)
 	default:
 		statusText = "Claude Code Permission Editor"
 	}
@@ -270,25 +259,4 @@ func getColumnPermissions(m *types.Model) []types.Permission {
 		}
 	}
 	return columnPerms
-}
-
-// countPendingChanges counts the total number of pending changes
-func countPendingChanges(m *types.Model) int {
-	count := 0
-
-	// Count moved permissions
-	for _, perm := range m.Permissions {
-		if perm.CurrentLevel != perm.OriginalLevel {
-			count++
-		}
-	}
-
-	// Count resolved duplicates
-	for _, dup := range m.Duplicates {
-		if dup.KeepLevel != "" {
-			count++
-		}
-	}
-
-	return count
 }

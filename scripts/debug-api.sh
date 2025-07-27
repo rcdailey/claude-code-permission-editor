@@ -22,13 +22,14 @@ usage() {
 Usage: $0 <command> [options]
 
 Commands:
-  health          - Check debug server health
-  state           - Get application state (UI, data, files)
-  layout          - Get layout diagnostics
-  snapshot        - Capture screen content
-  logs            - Get debug event logs
-  input <key>     - Send key input to application
-  reset           - Reset application state
+  health                    - Check debug server health
+  state                     - Get application state (UI, data, files)
+  layout                    - Get layout diagnostics
+  snapshot                  - Capture screen content
+  logs                      - Get debug event logs
+  input <key>               - Send key input to application
+  reset                     - Reset application state
+  launch-confirm-changes    - Launch confirmation screen with mock changes
 
 Options:
   --port <port>   - Debug server port (default: $DEFAULT_PORT)
@@ -48,13 +49,14 @@ Examples:
   $0 input tab
   $0 input enter
   $0 reset
+  $0 launch-confirm-changes
 EOF
 }
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        health|state|layout|snapshot|logs|input|reset)
+        health|state|layout|snapshot|logs|input|reset|launch-confirm-changes)
             COMMAND="$1"
             shift
             ;;
@@ -167,6 +169,33 @@ case "$COMMAND" in
 
     reset)
         make_post_request "/reset" "{}"
+        ;;
+
+    launch-confirm-changes)
+        # Create mock data with permissions that exist in test data
+        mock_data='{
+            "mock_changes": {
+                "permission_moves": [
+                    {
+                        "name": "Read",
+                        "from": "User",
+                        "to": "Local"
+                    },
+                    {
+                        "name": "Bash",
+                        "from": "User",
+                        "to": "Repo"
+                    },
+                    {
+                        "name": "Glob",
+                        "from": "Local",
+                        "to": "User"
+                    }
+                ],
+                "duplicate_resolutions": []
+            }
+        }'
+        make_post_request "/launch-confirm-changes" "$mock_data"
         ;;
 
     *)

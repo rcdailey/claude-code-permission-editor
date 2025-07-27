@@ -174,19 +174,21 @@ Claude Code MUST follow this exact protocol when debugging or developing:
 1. **NEVER run `scripts/dev.sh` directly** - This requires TTY and is user-only
 1. **NEVER** run the `claude-permissions` executable directly -- it requires TTY which Claude Code
    has no access to.
-1. **If any debug endpoint fails** - Ask user to run `scripts/dev.sh` and wait for confirmation
+1. **ASSUME the debug server is always running** - Proceed directly with debug API calls
+1. **ONLY if a debug endpoint fails with connection error** - Ask user to run `scripts/dev.sh`
 
 #### Standard Development Process
 
-1. **User runs `scripts/dev.sh`** to start live reload development server
-1. **Claude makes code changes** - dev.sh automatically rebuilds and restarts application
-1. **Claude uses debug API** - Inspect application state, test functionality, and diagnose issues
-1. **Iterate** - repeat steps 2-5 until task is complete
+1. **Claude makes code changes** - Assume dev.sh is running and will auto-rebuild
+1. **Claude uses debug API immediately** - Don't ask permission, just use the debug endpoints
+1. **If endpoint fails** - Then and only then ask user to start/restart `scripts/dev.sh`
+1. **Iterate** - repeat steps 1-3 until task is complete
 
 #### Debug Server Dependency Rule
 
-- All debug operations (state, logs, snapshot, input) require the debug server to be running
-- If any debug API call fails, immediately ask user to restart dev.sh if needed
+- **Default assumption**: Debug server is running and ready for API calls
+- **Never preemptively ask** user to start the server before making API calls
+- **Only request server start** if debug API calls return connection failures
 - Never attempt to start the server yourself - always request user to do it
 
 This workflow ensures rapid development with real-time feedback and debugging capabilities.
@@ -226,6 +228,16 @@ scripts/debug-api.sh state --host localhost --port 8081
 
 **Architecture**: Performance-optimized with compile-time type checking and proper thread
 synchronization for concurrent access to model state.
+
+### Debug Endpoint Patterns
+
+Debug endpoints follow consistent naming patterns:
+
+- **Screen testing**: `launch-<screen_name>` - Launch specific screens with mock data for testing
+  - `/launch-confirm-changes` - Launch confirmation screen with mock permission moves and duplicate resolutions
+  - Future: `/launch-duplicates`, `/launch-organization`, etc.
+- **State inspection**: `/state`, `/snapshot`, `/logs` - Inspect current application state
+- **Interaction**: `/input`, `/reset` - Send inputs or reset application state
 
 ## Testing
 

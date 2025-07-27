@@ -57,6 +57,7 @@ func NewDebugServer(
 	mux.HandleFunc("/input", ds.handleInput)
 	mux.HandleFunc("/logs", ds.handleLogs)
 	mux.HandleFunc("/reset", ds.handleReset)
+	mux.HandleFunc("/launch-confirm-changes", ds.handleLaunchConfirmChanges)
 
 	// Health check endpoint
 	mux.HandleFunc("/health", ds.handleHealth)
@@ -241,4 +242,112 @@ func getQueryParamBool(r *http.Request, key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+// LaunchConfirmChangesRequest represents the request to launch confirm changes screen
+type LaunchConfirmChangesRequest struct {
+	MockChanges struct {
+		PermissionMoves []struct {
+			Name string `json:"name"`
+			From string `json:"from"`
+			To   string `json:"to"`
+		} `json:"permission_moves"`
+		DuplicateResolutions []struct {
+			Name       string   `json:"name"`
+			KeepLevel  string   `json:"keep_level"`
+			RemoveFrom []string `json:"remove_from"`
+		} `json:"duplicate_resolutions"`
+	} `json:"mock_changes"`
+}
+
+// LaunchConfirmChangesResponse represents the response from launching confirm changes screen
+type LaunchConfirmChangesResponse struct {
+	Success        bool   `json:"success"`
+	PreviousScreen string `json:"previous_screen"`
+	NewScreen      string `json:"new_screen"`
+	ChangesApplied int    `json:"changes_applied"`
+	Error          string `json:"error,omitempty"`
+	Timestamp      string `json:"timestamp"`
+}
+
+// LaunchConfirmChangesMsg is a custom message for launching confirm changes screen
+type LaunchConfirmChangesMsg struct {
+	Request *LaunchConfirmChangesRequest
+}
+
+// handleLaunchConfirmChanges handles the POST /launch-confirm-changes endpoint
+func (ds *DebugServer) handleLaunchConfirmChanges(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse the request
+	var request LaunchConfirmChangesRequest
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		ds.writeErrorResponse(w, "Invalid JSON in request body", http.StatusBadRequest)
+		return
+	}
+
+	// Check if program is available
+	if ds.program == nil {
+		ds.writeErrorResponse(w, "No program instance available", http.StatusInternalServerError)
+		return
+	}
+
+	// Capture previous screen
+	model := ds.GetModel()
+	if model == nil {
+		ds.writeErrorResponse(w, "No model available", http.StatusInternalServerError)
+		return
+	}
+
+	model.Mutex.RLock()
+	previousScreen := screenNumberToName(model.CurrentScreen)
+	model.Mutex.RUnlock()
+
+	// Send message to launch confirm changes screen
+	msg := LaunchConfirmChangesMsg{Request: &request}
+	ds.program.Send(msg)
+
+	// Give the application a moment to process the message
+	time.Sleep(100 * time.Millisecond)
+
+	// Capture new screen state
+	model.Mutex.RLock()
+	newScreen := screenNumberToName(model.CurrentScreen)
+	model.Mutex.RUnlock()
+
+	// Build response
+	response := LaunchConfirmChangesResponse{
+		Success:        true,
+		PreviousScreen: previousScreen,
+		NewScreen:      newScreen,
+		ChangesApplied: len(
+			request.MockChanges.PermissionMoves,
+		) + len(
+			request.MockChanges.DuplicateResolutions,
+		),
+		Timestamp: getCurrentTimestamp(),
+	}
+
+	ds.logger.LogEvent("launch_confirm_changes", map[string]interface{}{
+		"changes_applied": response.ChangesApplied,
+		"previous_screen": previousScreen,
+		"new_screen":      newScreen,
+	})
+
+	ds.writeJSONResponse(w, response)
+}
+
+// screenNumberToName converts screen number to name
+func screenNumberToName(screen int) string {
+	switch screen {
+	case types.ScreenDuplicates:
+		return "ScreenDuplicates"
+	case types.ScreenOrganization:
+		return "ScreenOrganization"
+	default:
+		return "Unknown"
+	}
 }

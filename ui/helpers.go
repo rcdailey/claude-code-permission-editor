@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"claude-permissions/debug"
 	"claude-permissions/types"
 
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -19,8 +20,8 @@ func handleKeyPress(m *types.Model, msg tea.KeyMsg) (*types.Model, tea.Cmd) {
 	}
 
 	// Handle modal input first if modal is shown
-	if m.ShowModal {
-		return handleModalInput(m, key), nil
+	if m.ActiveModal != nil {
+		return handleActiveModalInput(m, key), nil
 	}
 
 	return handleNonModalKeys(m, msg, key)
@@ -33,12 +34,12 @@ func handleNonModalKeys(m *types.Model, msg tea.KeyMsg, key string) (*types.Mode
 	}
 
 	// Handle ESC key for reset functionality on permissions screen
-	if key == "escape" || key == "esc" || msg.Key().Code == tea.KeyEscape {
+	if key == keyEscapeLong || key == keyEscape || msg.Key().Code == tea.KeyEscape {
 		return handleEscapeKey(m), nil
 	}
 
 	// Handle ENTER key for confirmation screen transition
-	if key == "enter" || msg.Key().Code == tea.KeyEnter {
+	if key == keyEnter || msg.Key().Code == tea.KeyEnter {
 		return handleEnterKey(m), nil
 	}
 
@@ -53,13 +54,10 @@ func handleNonModalKeys(m *types.Model, msg tea.KeyMsg, key string) (*types.Mode
 // handleEnterKey handles ENTER key based on current screen
 func handleEnterKey(m *types.Model) *types.Model {
 	switch m.CurrentScreen {
-	case types.ScreenConfirmation:
-		// Return to organization screen
-		m.CurrentScreen = types.ScreenOrganization
 	case types.ScreenDuplicates, types.ScreenOrganization:
-		// Transition to confirmation screen if there are pending changes
+		// Launch confirm changes modal if there are pending changes
 		if hasPendingChanges(m) {
-			m.CurrentScreen = types.ScreenConfirmation
+			m.ActiveModal = NewConfirmChangesModal(m)
 		}
 	}
 	return m
@@ -269,8 +267,11 @@ func getSourceColumnLength(m *types.Model, columnIndex int) int {
 }
 
 const (
-	keyUp   = "up"
-	keyDown = "down"
+	keyUp         = "up"
+	keyDown       = "down"
+	keyEnter      = "enter"
+	keyEscape     = "esc"
+	keyEscapeLong = "escape"
 )
 
 // handleUpDownNavigation passes up/down keys to the appropriate component
@@ -331,49 +332,12 @@ func handleOrganizationNavigation(m *types.Model, key string) *types.Model {
 
 // renderModal renders a modal dialog using Lipgloss v2 Canvas and Layer compositing
 func renderModal(m *types.Model, baseContent string) string {
-	if !m.ShowModal {
+	if m.ActiveModal == nil {
 		return baseContent
 	}
 
-	// Calculate modal dimensions
-	contentWidth := 60
-
-	// Create modal content with high contrast styling
-	modalStyle := lipgloss.NewStyle().
-		Width(contentWidth).
-		Border(lipgloss.ThickBorder()).
-		BorderForeground(lipgloss.Color("11")).
-		Background(lipgloss.Color("0")).
-		Foreground(lipgloss.Color("15")).
-		Padding(1, 2)
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("11")).
-		Align(lipgloss.Center).
-		Width(contentWidth - 4) // Account for padding
-
-	bodyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).
-		Width(contentWidth-4). // Account for padding
-		Padding(1, 0)
-
-	// Style instructions consistently with footer hints using AccentStyle
-	instructionsStyle := lipgloss.NewStyle().
-		Align(lipgloss.Center).
-		Width(contentWidth-4). // Account for padding
-		Padding(1, 0, 0, 0)
-
-	title := titleStyle.Render(m.ModalTitle)
-	body := bodyStyle.Render(m.ModalBody)
-	// Style like footer: AccentStyle for keys, normal text for descriptions
-	instructions := instructionsStyle.Render(
-		AccentStyle.Render("Y/Enter") + " · Yes  |  " + AccentStyle.Render("N/ESC") + " · No",
-	)
-
-	modalContent := modalStyle.Render(
-		lipgloss.JoinVertical(lipgloss.Left, title, body, instructions),
-	)
+	// Ask the modal what to render
+	modalContent := m.ActiveModal.RenderModal(m.Width, m.Height)
 
 	// Calculate modal dimensions after rendering
 	modalHeight := lipgloss.Height(modalContent)
@@ -390,79 +354,85 @@ func renderModal(m *types.Model, baseContent string) string {
 	return canvas.Render()
 }
 
-// renderConfirmation renders the confirmation screen
-func renderConfirmation(m *types.Model) string {
-	// Create title
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("15")).
-		Align(lipgloss.Center).
-		Width(m.Width).
-		Padding(1)
-	title := titleStyle.Render("Confirm Changes")
-
-	// Build list of pending changes
-	changeLines := buildPendingChangesList(m)
-
-	if len(changeLines) == 0 {
-		emptyStyle := lipgloss.NewStyle().
-			Width(m.Width).
-			Height(m.Height-6).
-			Align(lipgloss.Center, lipgloss.Center).
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("8"))
-		content := emptyStyle.Render("No pending changes")
-
-		instructions := AccentStyle.Render("ESC") + " · Return to main screen"
-		instrStyle := lipgloss.NewStyle().
-			Align(lipgloss.Center).
-			Width(m.Width)
-		footer := instrStyle.Render(instructions)
-
-		return lipgloss.JoinVertical(lipgloss.Top, title, content, footer)
-	}
-
-	contentStyle := lipgloss.NewStyle().
-		Width(m.Width).
-		Height(m.Height - 6).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
-		Padding(1)
-	content := contentStyle.Render(strings.Join(changeLines, "\n"))
-
-	// Instructions using consistent footer styling
-	row1Keys := []string{
-		AccentStyle.Render("ENTER") + " · Execute all actions",
-		AccentStyle.Render("ESC") + " · Cancel and return",
-	}
-	row2Keys := []string{
-		AccentStyle.Render("Q") + " · Quit without saving",
-	}
-	instructions := strings.Join(row1Keys, "  |  ") + "\n" + strings.Join(row2Keys, "  |  ")
-	instrStyle := lipgloss.NewStyle().
-		Align(lipgloss.Center).
-		Width(m.Width)
-	footer := instrStyle.Render(instructions)
-
-	return lipgloss.JoinVertical(lipgloss.Top, title, content, footer)
-}
-
-// buildPendingChangesList builds a list of pending changes for display
+// buildPendingChangesList builds a list of pending changes for display, grouped by destination level
 func buildPendingChangesList(m *types.Model) []string {
 	var changeLines []string
 
-	// Check for moved permissions
+	// Add permission moves grouped by destination level
+	permissionChanges := buildPermissionMovesList(m)
+	changeLines = append(changeLines, permissionChanges...)
+
+	// Add duplicate resolutions section
+	duplicateChanges := buildDuplicateResolutionsList(m)
+	changeLines = append(changeLines, duplicateChanges...)
+
+	return changeLines
+}
+
+// buildPermissionMovesList builds the permission moves section
+func buildPermissionMovesList(m *types.Model) []string {
+	var changeLines []string
+
+	// Group permission moves by destination level
+	movesByLevel := map[string][]types.Permission{
+		types.LevelLocal: {},
+		types.LevelRepo:  {},
+		types.LevelUser:  {},
+	}
+
+	// Collect moved permissions by destination level
 	for _, perm := range m.Permissions {
 		if perm.CurrentLevel != perm.OriginalLevel {
-			// Apply level colors to level names
-			originalLevelStyled := getLevelStyledText(perm.OriginalLevel)
-			currentLevelStyled := getLevelStyledText(perm.CurrentLevel)
-			changeLines = append(changeLines,
-				fmt.Sprintf("• %s: %s → %s", perm.Name, originalLevelStyled, currentLevelStyled))
+			movesByLevel[perm.CurrentLevel] = append(movesByLevel[perm.CurrentLevel], perm)
 		}
 	}
 
-	// Check for resolved duplicates
+	// Add permission moves grouped by destination level
+	levelOrder := []string{types.LevelLocal, types.LevelRepo, types.LevelUser}
+	for _, level := range levelOrder {
+		moves := movesByLevel[level]
+		if len(moves) > 0 {
+			changeLines = append(changeLines, buildLevelSection(level, moves)...)
+		}
+	}
+
+	return changeLines
+}
+
+// buildLevelSection builds a section for a specific level
+func buildLevelSection(level string, moves []types.Permission) []string {
+	section := make([]string, 0, len(moves)+2) // header + moves + empty line
+
+	// Add section header
+	levelStyled := getLevelStyledText(level)
+	section = append(section, fmt.Sprintf("Moving to %s Level:", levelStyled))
+
+	// Sort permissions alphabetically within level
+	sortPermissionsByName(moves)
+
+	// Add each permission move
+	for _, perm := range moves {
+		originalLevelStyled := getLevelStyledText(perm.OriginalLevel)
+		currentLevelStyled := getLevelStyledText(perm.CurrentLevel)
+		section = append(
+			section,
+			fmt.Sprintf(
+				"• %s: %s → %s",
+				perm.Name,
+				originalLevelStyled,
+				currentLevelStyled,
+			),
+		)
+	}
+	section = append(section, "") // Empty line after each section
+
+	return section
+}
+
+// buildDuplicateResolutionsList builds the duplicate resolutions section
+func buildDuplicateResolutionsList(m *types.Model) []string {
+	var duplicateResolutions []string
+
 	for _, dup := range m.Duplicates {
 		if dup.KeepLevel != "" {
 			otherLevels := []string{}
@@ -475,69 +445,100 @@ func buildPendingChangesList(m *types.Model) []string {
 			if len(otherLevels) > 0 {
 				// Apply level color to keep level
 				keepLevelStyled := getLevelStyledText(dup.KeepLevel)
-				changeLines = append(changeLines,
+				duplicateResolutions = append(duplicateResolutions,
 					fmt.Sprintf("• %s: Remove from %s (keep in %s)",
 						dup.Name, strings.Join(otherLevels, ", "), keepLevelStyled))
 			}
 		}
 	}
 
-	return changeLines
+	var result []string
+	if len(duplicateResolutions) > 0 {
+		result = append(result, "Duplicate Resolutions:")
+		result = append(result, duplicateResolutions...)
+	}
+
+	return result
+}
+
+// sortPermissionsByName sorts permissions alphabetically by name
+func sortPermissionsByName(perms []types.Permission) {
+	for i := 0; i < len(perms)-1; i++ {
+		for j := i + 1; j < len(perms); j++ {
+			if strings.ToLower(perms[i].Name) > strings.ToLower(perms[j].Name) {
+				perms[i], perms[j] = perms[j], perms[i]
+			}
+		}
+	}
 }
 
 // handleEscapeKey handles ESC key with screen-specific behavior
 func handleEscapeKey(m *types.Model) *types.Model {
 	switch m.CurrentScreen {
-	case types.ScreenConfirmation:
-		// On confirmation screen: ESC returns to the previous screen (organization)
-		m.CurrentScreen = types.ScreenOrganization
 	case types.ScreenDuplicates:
 		// On duplicates screen: ESC should cancel/exit (only if no pending changes)
 		if hasPendingChanges(m) {
-			m.ShowModal = true
-			m.ModalTitle = "Exit with Pending Changes"
-			m.ModalBody = "You have pending permission moves or duplicate resolutions.\n\n" +
-				"Do you want to discard these changes and exit?"
-			m.ModalAction = "exit"
+			m.ActiveModal = NewSmallModal(
+				"Exit with Pending Changes",
+				"You have pending permission moves or duplicate resolutions.\n\n"+
+					"Do you want to discard these changes and exit?",
+				"exit",
+			)
 		}
 		// If no pending changes, ESC does nothing (user should use Q to quit)
 	case types.ScreenOrganization:
 		// On organization screen: ESC should reset changes
 		if hasPendingChanges(m) {
-			m.ShowModal = true
-			m.ModalTitle = "Reset All Changes"
-			m.ModalBody = "Are you sure you want to reset all permission moves and duplicate resolutions?\n\n" +
-				"This will undo all pending changes and return permissions to their original state."
-			m.ModalAction = "reset"
+			m.ActiveModal = NewSmallModal(
+				"Reset All Changes",
+				"Are you sure you want to reset all permission moves and duplicate resolutions?\n\n"+
+					"This will undo all pending changes and return permissions to their original state.",
+				"reset",
+			)
 		}
 		// If no pending changes, ESC does nothing
 	}
 	return m
 }
 
-// handleModalInput handles keyboard input when modal is shown
-func handleModalInput(m *types.Model, key string) *types.Model {
-	switch key {
-	case "y", "Y", "enter":
-		switch m.ModalAction {
-		case "reset":
-			m = resetAllChanges(m)
-		case "exit":
-			// For exit action, reset changes and quit the application
-			m = resetAllChanges(m)
-			// Note: We can't directly quit from here, but we clear changes
-			// The user will need to press Q to actually quit
-		}
-		m.ShowModal = false
-		m.ModalTitle = ""
-		m.ModalBody = ""
-		m.ModalAction = ""
-	case "n", "N", "escape", "esc":
-		m.ShowModal = false
-		m.ModalTitle = ""
-		m.ModalBody = ""
-		m.ModalAction = ""
+// handleActiveModalInput handles keyboard input for new modal interface
+func handleActiveModalInput(m *types.Model, key string) *types.Model {
+	handled, result := m.ActiveModal.HandleInput(key)
+	if !handled {
+		return m
 	}
+
+	// Process the result based on modal type and action
+	switch resultStr := result.(string); resultStr {
+	case "yes":
+		// For small modals, determine action based on the modal's Action field
+		if smallModal, ok := m.ActiveModal.(*SmallModal); ok {
+			switch smallModal.Action {
+			case "reset":
+				m = resetAllChanges(m)
+			case "exit":
+				// For exit action, reset changes and clear modal
+				m = resetAllChanges(m)
+			}
+		}
+		m.ActiveModal = nil
+	case "no":
+		// Just close the modal without action
+		m.ActiveModal = nil
+	case "execute":
+		// For confirm changes modal - execute all changes and close modal
+		// TODO: Here we would actually save the changes to files
+		// For now, just close the modal (changes remain in memory)
+		m.ActiveModal = nil
+	case "cancel":
+		// For confirm changes modal - just close modal and return to main screen
+		m.ActiveModal = nil
+	case "quit":
+		// For confirm changes modal - quit application
+		// The main program loop should handle this by checking for quit signals
+		m.ActiveModal = nil
+	}
+
 	return m
 }
 
@@ -597,4 +598,104 @@ func resetAllChanges(m *types.Model) *types.Model {
 	m.ColumnSelections = [3]int{0, 0, 0}
 
 	return m
+}
+
+// handleLaunchConfirmChanges handles the debug message to launch confirm changes screen
+func handleLaunchConfirmChanges(
+	m *types.Model,
+	msg debug.LaunchConfirmChangesMsg,
+) *types.Model {
+	// Apply mock changes to model
+	applyMockChangesToModel(m, msg.Request)
+
+	// Launch confirm changes modal
+	m.ActiveModal = NewConfirmChangesModal(m)
+
+	return m
+}
+
+// applyMockChangesToModel applies mock permission moves and duplicate resolutions to the model
+func applyMockChangesToModel(m *types.Model, request *debug.LaunchConfirmChangesRequest) {
+	// Apply permission moves
+	for _, move := range request.MockChanges.PermissionMoves {
+		// Find the permission in the model
+		for i := range m.Permissions {
+			if m.Permissions[i].Name == move.Name {
+				// Set original level if not already set
+				if m.Permissions[i].OriginalLevel == "" {
+					m.Permissions[i].OriginalLevel = move.From
+				}
+				// Update the permission's current level
+				m.Permissions[i].CurrentLevel = move.To
+				break
+			}
+		}
+
+		// Also update the level permissions arrays
+		updateModelLevelPermissions(m, move.Name, move.From, move.To)
+	}
+
+	// Apply duplicate resolutions
+	for _, resolution := range request.MockChanges.DuplicateResolutions {
+		// Find the duplicate in the model
+		for i := range m.Duplicates {
+			if m.Duplicates[i].Name == resolution.Name {
+				m.Duplicates[i].KeepLevel = resolution.KeepLevel
+				break
+			}
+		}
+	}
+}
+
+// updateModelLevelPermissions updates the permission arrays in the appropriate levels
+func updateModelLevelPermissions(m *types.Model, permName, fromLevel, toLevel string) {
+	// Remove from source level
+	switch fromLevel {
+	case types.LevelLocal:
+		m.LocalLevel.Permissions = removePermissionFromArray(m.LocalLevel.Permissions, permName)
+	case types.LevelRepo:
+		m.RepoLevel.Permissions = removePermissionFromArray(m.RepoLevel.Permissions, permName)
+	case types.LevelUser:
+		m.UserLevel.Permissions = removePermissionFromArray(m.UserLevel.Permissions, permName)
+	}
+
+	// Add to target level (alphabetically sorted)
+	switch toLevel {
+	case types.LevelLocal:
+		m.LocalLevel.Permissions = addPermissionToArraySorted(m.LocalLevel.Permissions, permName)
+	case types.LevelRepo:
+		m.RepoLevel.Permissions = addPermissionToArraySorted(m.RepoLevel.Permissions, permName)
+	case types.LevelUser:
+		m.UserLevel.Permissions = addPermissionToArraySorted(m.UserLevel.Permissions, permName)
+	}
+}
+
+// removePermissionFromArray removes a permission from a slice
+func removePermissionFromArray(perms []string, permission string) []string {
+	for i, perm := range perms {
+		if perm == permission {
+			return append(perms[:i], perms[i+1:]...)
+		}
+	}
+	return perms
+}
+
+// addPermissionToArraySorted adds a permission to a slice in alphabetical order
+func addPermissionToArraySorted(perms []string, permission string) []string {
+	// Find insertion point
+	insertIndex := 0
+	for i, perm := range perms {
+		if permission < perm {
+			insertIndex = i
+			break
+		}
+		insertIndex = i + 1
+	}
+
+	// Insert at the correct position
+	perms = append(perms, "")
+	copy(perms[insertIndex+1:], perms[insertIndex:])
+	perms[insertIndex] = permission
+
+	return perms
 }
