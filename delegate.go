@@ -31,74 +31,83 @@ func (d PermissionDelegate) Render(w io.Writer, m list.Model, index int, listIte
 		return
 	}
 
-	// Selection indicator
+	leftColumn := d.formatLeftColumn(perm, m, index)
+	rightColumn := d.formatRightColumn(perm)
+	output := d.formatTwoColumnLayout(leftColumn, rightColumn, m.Width())
+
+	_, _ = fmt.Fprint(w, output)
+}
+
+// formatLeftColumn creates the left column content with cursor and selection indicators
+func (d PermissionDelegate) formatLeftColumn(
+	perm types.Permission,
+	m list.Model,
+	index int,
+) string {
 	selected := " "
 	if perm.Selected {
 		selected = "x"
 	}
 
-	// Cursor indicator - use list's built-in cursor tracking
 	cursor := " "
 	if index == m.Index() {
 		cursor = ">"
 	}
 
-	// Level styling
-	levelStyle := levelLocalStyle
-	switch perm.CurrentLevel {
-	case "User":
-		levelStyle = levelUserStyle
-	case "Repo":
-		levelStyle = levelRepoStyle
-	}
-
-	// Pending move arrow
-	moveArrow := ""
-	if perm.PendingMove != "" {
-		moveArrow = moveArrowStyle.Render(fmt.Sprintf(" → [%s]", perm.PendingMove))
-	}
-
-	// Use built-in list highlighting for filter matches
 	permName := perm.Name
 	if matches := m.MatchesForItem(index); len(matches) > 0 {
-		// Apply highlighting to matched characters using centralized style
 		permName = highlightMatches(perm.Name, matches, highlightedItemStyle)
 	}
 
-	// Create two-column layout
-	leftColumn := fmt.Sprintf("%s[%s] %s", cursor, selected, permName)
-	rightColumn := levelStyle.Render(fmt.Sprintf("[%s]", perm.CurrentLevel)) + moveArrow
+	return fmt.Sprintf("%s[%s] %s", cursor, selected, permName)
+}
 
-	// Calculate column widths based on actual content area, accounting for panel borders
-	totalWidth := m.Width()
+// formatRightColumn creates the right column with level and move indicators
+func (d PermissionDelegate) formatRightColumn(perm types.Permission) string {
+	levelStyle := d.getLevelStyle(perm.CurrentLevel)
+	rightColumn := levelStyle.Render(fmt.Sprintf("[%s]", perm.CurrentLevel))
 
-	// Account for panel border/padding overhead (from panelStyle frame)
-	// Typical panel frame adds ~4 characters (2 left + 2 right borders/padding)
+	if perm.PendingMove != "" {
+		rightColumn += moveArrowStyle.Render(fmt.Sprintf(" → [%s]", perm.PendingMove))
+	}
+
+	return rightColumn
+}
+
+// getLevelStyle returns the appropriate style for a permission level
+func (d PermissionDelegate) getLevelStyle(level string) lipgloss.Style {
+	switch level {
+	case "User":
+		return levelUserStyle
+	case "Repo":
+		return levelRepoStyle
+	default:
+		return levelLocalStyle
+	}
+}
+
+// formatTwoColumnLayout creates a two-column layout for the permission item
+func (d PermissionDelegate) formatTwoColumnLayout(
+	leftColumn, rightColumn string,
+	totalWidth int,
+) string {
+	// Account for panel border/padding overhead
 	contentWidth := totalWidth - 4
-	if contentWidth < 40 { // Minimum usable width
+	if contentWidth < 40 {
 		contentWidth = 40
 	}
 
 	leftWidth := int(float64(contentWidth) * ColumnSplitRatio)
-	rightWidth := contentWidth - leftWidth
 
-	// Create columns with proper alignment using centralized styles
-	leftColumnStyled := leftColumnStyle.
-		Width(leftWidth).
-		Render(leftColumn)
+	leftColumnFormatted := leftColumnStyle.Render(leftColumn)
+	rightColumnFormatted := rightColumnStyle.Render(rightColumn)
 
-	rightColumnStyled := rightColumnStyle.
-		Width(rightWidth).
-		Render(rightColumn)
-
-	line := lipgloss.JoinHorizontal(lipgloss.Top, leftColumnStyled, rightColumnStyled)
-
-	// Apply cursor highlighting if this item is selected
-	if index == m.Index() {
-		line = cursorStyle.Render(line)
+	paddingNeeded := leftWidth - lipgloss.Width(leftColumnFormatted)
+	if paddingNeeded < 0 {
+		paddingNeeded = 0
 	}
 
-	_, _ = fmt.Fprint(w, line)
+	return leftColumnFormatted + strings.Repeat(" ", paddingNeeded) + rightColumnFormatted
 }
 
 // highlightMatches highlights character positions based on list filter matches

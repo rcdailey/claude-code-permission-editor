@@ -5,23 +5,56 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"unicode/utf8"
+
+	"claude-permissions/types"
 
 	"golang.org/x/term"
 )
 
-// SnapshotResponse represents the screen snapshot data
+// ComponentPosition represents the calculated position and dimensions of a UI component
+type ComponentPosition struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+	W int `json:"w"`
+	H int `json:"h"`
+}
+
+// LayoutCalculations represents UI layout metrics and component sizing data
+type LayoutCalculations struct {
+	AvailableHeight int                    `json:"available_height"`
+	FixedHeight     int                    `json:"fixed_height"`
+	FrameOverhead   map[string]int         `json:"frame_overhead"`
+	ComponentSizes  map[string]interface{} `json:"component_sizes"`
+}
+
+// SnapshotResponse represents the combined screen snapshot and layout data
 type SnapshotResponse struct {
-	Content        string    `json:"content"`
-	Width          int       `json:"width"`
-	Height         int       `json:"height"`
-	CursorPosition [2]int    `json:"cursor_position"`
-	Raw            bool      `json:"raw"`
-	Timestamp      string    `json:"timestamp"`
+	// Rendered content
+	Content        string `json:"content"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	CursorPosition [2]int `json:"cursor_position"`
+	Raw            bool   `json:"raw"`
+
+	// Layout diagnostics
+	Terminal           [2]int                       `json:"terminal"`
+	Components         map[string]ComponentPosition `json:"components"`
+	LayoutWarnings     []string                     `json:"layout_warnings"`
+	LayoutCalculations LayoutCalculations           `json:"layout_calculations"`
+
+	// Dimension validation
+	DimensionMismatch bool   `json:"dimension_mismatch"`
+	MismatchDetails   string `json:"mismatch_details,omitempty"`
+
+	Timestamp string `json:"timestamp"`
 }
 
 // No interfaces needed anymore - we use concrete types.Model
 
 // handleSnapshot handles the GET /snapshot endpoint
+//
+//nolint:funlen // Debug function complexity is acceptable for testing/debugging purposes
 func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		ds.writeErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -62,13 +95,50 @@ func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 	// In a real implementation, this would need to track actual cursor position
 	cursorPos := estimateCursorPosition(content)
 
+	// Get layout diagnostics
+	layoutData := extractLayoutDiagnostics(model)
+
+	// Calculate rendered content dimensions
+	contentLines := strings.Split(content, "\n")
+	renderedHeight := len(contentLines)
+	renderedWidth := 0
+	for _, line := range contentLines {
+		// Always use visual width (accounting for ANSI codes and Unicode)
+		lineWidth := visualWidth(line)
+		if lineWidth > renderedWidth {
+			renderedWidth = lineWidth
+		}
+	}
+
+	// Check for dimension mismatches
+	var dimensionMismatch bool
+	var mismatchDetails string
+
+	if renderedWidth != width || renderedHeight != height {
+		dimensionMismatch = true
+		mismatchDetails = fmt.Sprintf("Terminal: %dx%d, Rendered: %dx%d, Model: %dx%d",
+			width, height, renderedWidth, renderedHeight, model.Width, model.Height)
+	}
+
 	response := SnapshotResponse{
+		// Rendered content
 		Content:        content,
 		Width:          width,
 		Height:         height,
 		CursorPosition: cursorPos,
 		Raw:            raw,
-		Timestamp:      getCurrentTimestamp(),
+
+		// Layout diagnostics
+		Terminal:           layoutData.Terminal,
+		Components:         layoutData.Components,
+		LayoutWarnings:     layoutData.Warnings,
+		LayoutCalculations: layoutData.Calculations,
+
+		// Dimension validation
+		DimensionMismatch: dimensionMismatch,
+		MismatchDetails:   mismatchDetails,
+
+		Timestamp: getCurrentTimestamp(),
 	}
 
 	ds.logger.LogEvent("snapshot_captured", map[string]interface{}{
@@ -127,4 +197,76 @@ func estimateCursorPosition(content string) [2]int {
 // getCurrentTimestamp returns the current timestamp in RFC3339 format
 func getCurrentTimestamp() string {
 	return getTimestamp()
+}
+
+// visualWidth calculates the visual width of a string, accounting for ANSI codes
+func visualWidth(s string) int {
+	// Strip ANSI codes first
+	cleaned := stripANSICodes(s)
+	// Return the rune count (not byte count) for proper Unicode support
+	return utf8.RuneCountInString(cleaned)
+}
+
+// extractLayoutDiagnostics creates layout diagnostics for the pure lipgloss architecture
+func extractLayoutDiagnostics(model *types.Model) *LayoutResponse {
+	model.Mutex.RLock()
+	defer model.Mutex.RUnlock()
+
+	response := &LayoutResponse{
+		Terminal:   [2]int{model.Width, model.Height},
+		Components: make(map[string]ComponentPosition),
+		Warnings:   []string{"pure_lipgloss_architecture"},
+		Calculations: LayoutCalculations{
+			FrameOverhead:  make(map[string]int),
+			ComponentSizes: make(map[string]interface{}),
+		},
+	}
+
+	// Create simplified component positions for pure lipgloss layout
+	headerHeight := 3
+	footerHeight := 1
+	contentHeight := model.Height - headerHeight - footerHeight
+
+	response.Components["header"] = ComponentPosition{
+		X: 0, Y: 0, W: model.Width, H: headerHeight,
+	}
+	response.Components["content"] = ComponentPosition{
+		X: 0, Y: headerHeight, W: model.Width, H: contentHeight,
+	}
+	response.Components["footer"] = ComponentPosition{
+		X: 0, Y: headerHeight + contentHeight, W: model.Width, H: footerHeight,
+	}
+
+	response.Calculations = LayoutCalculations{
+		AvailableHeight: contentHeight,
+		FixedHeight:     headerHeight + footerHeight,
+		FrameOverhead: map[string]int{
+			"height": 2,
+			"width":  4,
+		},
+		ComponentSizes: map[string]interface{}{
+			"permissions_list": map[string]int{
+				"width":  model.PermissionsList.Width(),
+				"height": model.PermissionsList.Height(),
+			},
+			"duplicates_table": map[string]int{
+				"width":  model.DuplicatesTable.Width(),
+				"height": model.DuplicatesTable.Height(),
+			},
+			"actions_view": map[string]int{
+				"width":  model.ActionsView.Width,
+				"height": model.ActionsView.Height,
+			},
+		},
+	}
+
+	return response
+}
+
+// LayoutResponse represents layout diagnostics data for compatibility
+type LayoutResponse struct {
+	Terminal     [2]int                       `json:"terminal"`
+	Components   map[string]ComponentPosition `json:"components"`
+	Warnings     []string                     `json:"warnings"`
+	Calculations LayoutCalculations           `json:"calculations"`
 }

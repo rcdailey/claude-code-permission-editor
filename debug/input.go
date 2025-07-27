@@ -117,12 +117,12 @@ func (ds *DebugServer) captureModelState() ModelStateCapture {
 	defer model.Mutex.RUnlock()
 
 	return ModelStateCapture{
-		ActivePanel:   model.ActivePanel,          // Direct field access
-		SelectedItems: []string{},                 // TODO: Extract from lists if needed
-		FilterText:    "",                         // TODO: Extract from lists if needed
-		ConfirmMode:   model.ConfirmMode,          // Direct field access
-		ActionsCount:  len(model.Actions),         // Direct field access
-		StatusMessage: model.StatusMessage,        // Direct field access
+		ActivePanel:   model.ActivePanel,   // Direct field access
+		SelectedItems: []string{},          // TODO: Extract from lists if needed
+		FilterText:    "",                  // TODO: Extract from lists if needed
+		ConfirmMode:   model.ConfirmMode,   // Direct field access
+		ActionsCount:  len(model.Actions),  // Direct field access
+		StatusMessage: model.StatusMessage, // Direct field access
 	}
 }
 

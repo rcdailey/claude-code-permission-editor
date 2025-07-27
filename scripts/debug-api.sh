@@ -37,7 +37,7 @@ Options:
 
 Key Input Examples:
   tab, enter, escape, up, down, left, right, space
-  a, u, r, l, e, c, q, /
+  a, u, r, l, e, c, q, /, 1, 2, 3
 
 Examples:
   $0 health

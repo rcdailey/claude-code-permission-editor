@@ -7,7 +7,16 @@ repos:
   - id: check-yaml
   - id: check-added-large-files
 
-- repo: https://github.com/golangci/golangci-lint
-  rev: v2.3.0
+- repo: https://github.com/TekWizely/pre-commit-golang
+  rev: v1.0.0-rc.1
   hooks:
-  - id: golangci-lint-full
+  - id: go-fumpt
+    args: [-w]
+  - id: go-vet-mod
+  - id: golangci-lint-mod
+
+- repo: https://github.com/segmentio/golines
+  rev: v0.12.2
+  hooks:
+  - id: golines
+    args: [--max-len=100, --base-formatter=goimports]

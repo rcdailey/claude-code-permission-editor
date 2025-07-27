@@ -3,8 +3,6 @@ package types
 import (
 	"sync"
 
-	"claude-permissions/layout"
-
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/timer"
@@ -22,6 +20,12 @@ const (
 const (
 	ActionDuplicate = "duplicate"
 	ActionMove      = "move"
+)
+
+// Constants for screen states
+const (
+	ScreenDuplicates = iota
+	ScreenOrganization
 )
 
 // Settings represents the structure of Claude settings.json
@@ -85,17 +89,36 @@ type Model struct {
 	Actions     []Action     // Changed from: actions
 	ActivePanel int          // Changed from: activePanel
 
-	// Layout engine
-	LayoutEngine *layout.LayoutEngine // Changed from: layoutEngine
+	// Screen management
+	CurrentScreen int
+	CleanupStats  struct {
+		DuplicatesResolved int
+		SameLevelCleaned   int
+	}
+
+	// Terminal dimensions (for pure lipgloss layout)
+	Width  int
+	Height int
+
+	// Three-column organization state
+	FocusedColumn    int    // 0=LOCAL, 1=REPO, 2=USER
+	SelectedItem     int    // Index within focused column
+	ColumnSelections [3]int // Selection index for each column
 
 	// UI components
-	PermissionsList list.Model    // Changed from: permissionsList
-	DuplicatesTable table.Model   // Changed from: duplicatesTable
+	PermissionsList list.Model     // Changed from: permissionsList
+	DuplicatesTable table.Model    // Changed from: duplicatesTable
 	ActionsView     viewport.Model // Changed from: actionsView
 
 	// Confirmation state
 	ConfirmMode bool   // Changed from: confirmMode
 	ConfirmText string // Changed from: confirmText
+
+	// Modal state
+	ShowModal   bool
+	ModalTitle  string
+	ModalBody   string
+	ModalAction string // "continue" or "exit"
 
 	// Status message state
 	StatusMessage string      // Changed from: statusMessage

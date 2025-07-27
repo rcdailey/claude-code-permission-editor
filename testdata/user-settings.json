@@ -1,13 +1,12 @@
 {
   "allow": [
     "Bash",
-    "Edit",
+    "Grep",
     "Read",
-    "WebSearch",
-    "mcp__github__create_issue"
+    "WebSearch"
   ],
-  "someOtherSetting": "value",
   "nested": {
     "config": true
-  }
+  },
+  "someOtherSetting": "value"
 }

@@ -70,7 +70,12 @@ func loadRepoLevel() (types.SettingsLevel, error) {
 
 	repoRoot, err := findGitRoot()
 	if err != nil {
-		return types.SettingsLevel{Name: types.LevelRepo, Path: "", Permissions: []string{}, Exists: false}, nil
+		return types.SettingsLevel{
+			Name:        types.LevelRepo,
+			Path:        "",
+			Permissions: []string{},
+			Exists:      false,
+		}, nil
 	}
 
 	path := filepath.Join(repoRoot, ".claude", "settings.json")
@@ -86,7 +91,12 @@ func loadLocalLevel() (types.SettingsLevel, error) {
 
 	repoRoot, err := findGitRoot()
 	if err != nil {
-		return types.SettingsLevel{Name: types.LevelLocal, Path: "", Permissions: []string{}, Exists: false}, nil
+		return types.SettingsLevel{
+			Name:        types.LevelLocal,
+			Path:        "",
+			Permissions: []string{},
+			Exists:      false,
+		}, nil
 	}
 
 	path := filepath.Join(repoRoot, ".claude", "settings.local.json")
@@ -132,7 +142,9 @@ func loadSettingsLevel(name, path string) (types.SettingsLevel, error) {
 	}
 
 	// Read file
-	data, err := os.ReadFile(path) // #nosec G304 - path is validated and user-controlled config file
+	data, err := os.ReadFile(
+		path,
+	) // #nosec G304 - path is validated and user-controlled config file
 	if err != nil {
 		return level, fmt.Errorf("failed to read %s: %w", path, err)
 	}
@@ -155,74 +167,8 @@ func loadSettingsLevel(name, path string) (types.SettingsLevel, error) {
 	return level, nil
 }
 
-// loadSettingsFromFile loads settings from a file path
-func loadSettingsFromFile(path string) (types.Settings, error) {
-	settings := types.Settings{Allow: []string{}}
-
-	if path == "" {
-		return settings, nil
-	}
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return settings, nil
-	}
-
-	data, err := os.ReadFile(path) // #nosec G304 - path is validated and user-controlled config file
-	if err != nil {
-		return settings, err
-	}
-
-	// Try to parse as JSON
-	var fullSettings map[string]interface{}
-	if err := json.Unmarshal(data, &fullSettings); err != nil {
-		return settings, err
-	}
-
-	// Extract allow permissions if they exist
-	if allow, ok := fullSettings["allow"].([]interface{}); ok {
-		for _, perm := range allow {
-			if str, ok := perm.(string); ok {
-				settings.Allow = append(settings.Allow, str)
-			}
-		}
-	}
-
-	return settings, nil
-}
-
-// saveSettingsToFile saves settings to a file path
-func saveSettingsToFile(path string, settings types.Settings) error {
-	if path == "" {
-		return nil
-	}
-
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
-		return err
-	}
-
-	// Load existing settings to preserve other fields
-	var fullSettings map[string]interface{}
-	// #nosec G304 - path is validated and user-controlled config file
-	if data, err := os.ReadFile(path); err == nil {
-		_ = json.Unmarshal(data, &fullSettings) // Ignore error - we'll create new if unmarshal fails
-	}
-
-	if fullSettings == nil {
-		fullSettings = make(map[string]interface{})
-	}
-
-	// Update only the allow field
-	fullSettings["allow"] = settings.Allow
-
-	// Write back to file
-	data, err := json.MarshalIndent(fullSettings, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(path, data, 0600)
-}
+// Removed unused functions loadSettingsFromFile and saveSettingsToFile
+// These will be implemented when the action system is activated
 
 // consolidatePermissions creates a unified view of all permissions
 func consolidatePermissions(user, repo, local types.SettingsLevel) []types.Permission {
@@ -271,6 +217,25 @@ func consolidatePermissions(user, repo, local types.SettingsLevel) []types.Permi
 	})
 
 	return permissions
+}
+
+// autoResolveSameLevelDuplicates removes duplicate permissions within the same level
+func autoResolveSameLevelDuplicates(level *types.SettingsLevel) int {
+	seen := make(map[string]bool)
+	cleaned := []string{}
+	duplicatesRemoved := 0
+
+	for _, perm := range level.Permissions {
+		if !seen[perm] {
+			seen[perm] = true
+			cleaned = append(cleaned, perm)
+		} else {
+			duplicatesRemoved++
+		}
+	}
+
+	level.Permissions = cleaned
+	return duplicatesRemoved
 }
 
 // detectDuplicates finds permissions that exist in multiple levels

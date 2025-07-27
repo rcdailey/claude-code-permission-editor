@@ -10,5 +10,7 @@ watch:
   - "."
   - "./types"
   - "./debug"
-  - "./layout"
+  - "./ui"
+  include_exts:
+  - "go"
   interval: 100ms

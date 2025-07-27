@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"claude-permissions/debug"
-	"claude-permissions/layout"
 	"claude-permissions/types"
+	"claude-permissions/ui"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
@@ -29,7 +29,6 @@ var (
 	debugPort   = flag.Int("debug-port", 8080, "Port for debug server")
 )
 
-
 // AppModel wraps types.Model and implements tea.Model interface
 type AppModel struct {
 	*types.Model
@@ -37,19 +36,19 @@ type AppModel struct {
 
 // Init implements tea.Model interface
 func (a *AppModel) Init() tea.Cmd {
-	return Init(a.Model)
+	return ui.Init(a.Model)
 }
 
 // Update implements tea.Model interface
 func (a *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	newModel, cmd := Update(a.Model, msg)
+	newModel, cmd := ui.Update(a.Model, msg)
 	a.Model = newModel
 	return a, cmd
 }
 
 // View implements tea.Model interface
 func (a *AppModel) View() string {
-	return View(a.Model)
+	return ui.View(a.Model)
 }
 
 // GetView implements debug.ViewProvider interface
@@ -124,29 +123,46 @@ func main() {
 	}
 }
 
-func initialModel() (*types.Model, error) {
-	// Load settings from all levels
+// loadAllLevels loads settings from all three levels
+func loadAllLevels() (types.SettingsLevel, types.SettingsLevel, types.SettingsLevel, int, error) {
 	userLevel, err := loadUserLevel()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load user level: %w", err)
+		return types.SettingsLevel{}, types.SettingsLevel{}, types.SettingsLevel{}, 0, fmt.Errorf(
+			"failed to load user level: %w",
+			err,
+		)
 	}
 
 	repoLevel, err := loadRepoLevel()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load repo level: %w", err)
+		return types.SettingsLevel{}, types.SettingsLevel{}, types.SettingsLevel{}, 0, fmt.Errorf(
+			"failed to load repo level: %w",
+			err,
+		)
 	}
 
 	localLevel, err := loadLocalLevel()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load local level: %w", err)
+		return types.SettingsLevel{}, types.SettingsLevel{}, types.SettingsLevel{}, 0, fmt.Errorf(
+			"failed to load local level: %w",
+			err,
+		)
 	}
 
-	// Create consolidated permissions list
-	permissions := consolidatePermissions(userLevel, repoLevel, localLevel)
+	// Auto-resolve same-level duplicates and track statistics
+	userCleaned := autoResolveSameLevelDuplicates(&userLevel)
+	repoCleaned := autoResolveSameLevelDuplicates(&repoLevel)
+	localCleaned := autoResolveSameLevelDuplicates(&localLevel)
+	totalSameLevelCleaned := userCleaned + repoCleaned + localCleaned
 
-	// Detect duplicates
-	duplicates := detectDuplicates(userLevel, repoLevel, localLevel)
+	return userLevel, repoLevel, localLevel, totalSameLevelCleaned, nil
+}
 
+// createUIComponents creates the UI components
+func createUIComponents(
+	permissions []types.Permission,
+	duplicates []types.Duplicate,
+) (list.Model, table.Model, viewport.Model) {
 	// Create list items for permissions
 	listItems := make([]list.Item, len(permissions))
 	for i, perm := range permissions {
@@ -167,21 +183,57 @@ func initialModel() (*types.Model, error) {
 	// Create viewport for actions panel
 	actionsView := viewport.New(0, 0)
 
+	return permissionsList, duplicatesTable, actionsView
+}
+
+func initialModel() (*types.Model, error) {
+	userLevel, repoLevel, localLevel, totalSameLevelCleaned, err := loadAllLevels()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create consolidated permissions list
+	permissions := consolidatePermissions(userLevel, repoLevel, localLevel)
+
+	// Detect cross-level duplicates
+	duplicates := detectDuplicates(userLevel, repoLevel, localLevel)
+
+	permissionsList, duplicatesTable, actionsView := createUIComponents(permissions, duplicates)
+
+	// Determine starting screen based on duplicates
+	startingScreen := types.ScreenOrganization
+	if len(duplicates) > 0 {
+		startingScreen = types.ScreenDuplicates
+	}
+
 	model := &types.Model{
-		UserLevel:       userLevel,
-		RepoLevel:       repoLevel,
-		LocalLevel:      localLevel,
-		Permissions:     permissions,
-		Duplicates:      duplicates,
-		Actions:         []types.Action{},
-		ActivePanel:     0,
-		LayoutEngine:    layout.NewLayoutEngine(),
-		PermissionsList: permissionsList,
-		DuplicatesTable: duplicatesTable,
-		ActionsView:     actionsView,
-		ConfirmMode:     false,
-		StatusMessage:   "",
-		StatusTimer:     timer.New(3 * time.Second),
+		UserLevel:     userLevel,
+		RepoLevel:     repoLevel,
+		LocalLevel:    localLevel,
+		Permissions:   permissions,
+		Duplicates:    duplicates,
+		Actions:       []types.Action{},
+		ActivePanel:   0,
+		CurrentScreen: startingScreen,
+		CleanupStats: struct {
+			DuplicatesResolved int
+			SameLevelCleaned   int
+		}{
+			DuplicatesResolved: 0,
+			SameLevelCleaned:   totalSameLevelCleaned,
+		},
+		FocusedColumn:    0, // Start with LOCAL column
+		SelectedItem:     0,
+		ColumnSelections: [3]int{0, 0, 0},
+		Width:            0, // Will be set by terminal size message
+		Height:           0, // Will be set by terminal size message
+		PermissionsList:  permissionsList,
+		DuplicatesTable:  duplicatesTable,
+		ActionsView:      actionsView,
+		ConfirmMode:      false,
+		ShowModal:        false,
+		StatusMessage:    "",
+		StatusTimer:      timer.New(3 * time.Second),
 	}
 
 	return model, nil

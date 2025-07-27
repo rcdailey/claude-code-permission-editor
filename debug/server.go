@@ -32,7 +32,12 @@ type DebugServer struct {
 }
 
 // NewDebugServer creates a new debug server instance
-func NewDebugServer(port int, program *tea.Program, model *types.Model, viewProvider ViewProvider) *DebugServer {
+func NewDebugServer(
+	port int,
+	program *tea.Program,
+	model *types.Model,
+	viewProvider ViewProvider,
+) *DebugServer {
 	logger := NewLogger()
 
 	ds := &DebugServer{
@@ -48,7 +53,7 @@ func NewDebugServer(port int, program *tea.Program, model *types.Model, viewProv
 	// Register all endpoints
 	mux.HandleFunc("/snapshot", ds.handleSnapshot)
 	mux.HandleFunc("/state", ds.handleState)
-	mux.HandleFunc("/layout", ds.handleLayout)
+	// Layout diagnostics are included in the snapshot endpoint
 	mux.HandleFunc("/input", ds.handleInput)
 	mux.HandleFunc("/logs", ds.handleLogs)
 	mux.HandleFunc("/reset", ds.handleReset)
@@ -155,28 +160,27 @@ func convertKeyToMessage(key string) (tea.Msg, error) {
 	}
 }
 
+// keyMappings maps key strings to their corresponding rune
+var keyMappings = map[string]rune{
+	"a": 'a', "A": 'a',
+	"u": 'u', "U": 'u',
+	"r": 'r', "R": 'r',
+	"l": 'l', "L": 'l',
+	"e": 'e', "E": 'e',
+	"c": 'c', "C": 'c',
+	"q": 'q', "Q": 'q',
+	"/": '/',
+	"1": '1',
+	"2": '2',
+	"3": '3',
+}
+
 // convertRuneKeyToMessage converts single character keys to messages
 func convertRuneKeyToMessage(key string) (tea.Msg, error) {
-	switch key {
-	case "a", "A":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}, nil
-	case "u", "U":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}}, nil
-	case "r", "R":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}}, nil
-	case "l", "L":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}}, nil
-	case "e", "E":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}}, nil
-	case "c", "C":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'c'}}, nil
-	case "q", "Q":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}, nil
-	case "/":
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}, nil
-	default:
-		return nil, fmt.Errorf("unsupported key: %s", key)
+	if r, ok := keyMappings[key]; ok {
+		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}}, nil
 	}
+	return nil, fmt.Errorf("unsupported key: %s", key)
 }
 
 // handleHealth provides a health check endpoint
@@ -214,7 +218,7 @@ func (ds *DebugServer) writeErrorResponse(w http.ResponseWriter, message string,
 	w.WriteHeader(statusCode)
 
 	response := map[string]interface{}{
-		"error": message,
+		"error":     message,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -222,12 +226,10 @@ func (ds *DebugServer) writeErrorResponse(w http.ResponseWriter, message string,
 		ds.logger.LogError("error_response_encode_failed", err, nil)
 	}
 	ds.logger.LogEvent("error_response", map[string]interface{}{
-		"message": message,
+		"message":     message,
 		"status_code": statusCode,
 	})
 }
-
-
 
 // getQueryParamBool safely gets a boolean query parameter with a default value
 func getQueryParamBool(r *http.Request, key string, defaultValue bool) bool {

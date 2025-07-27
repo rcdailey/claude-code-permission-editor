@@ -73,6 +73,19 @@ execution:
 - **Clarity**: Dedicated confirmation screen reduces cognitive load
 - **Vertical space**: Two-panel main screen fits better in terminal constraints
 
+## CRITICAL: Pure Lipgloss Architecture
+
+**ALWAYS use pure Bubble Tea + Lipgloss patterns.** All UI rendering uses industry-standard TUI patterns:
+
+- ✅ REQUIRED: `lipgloss.JoinVertical()`, `lipgloss.JoinHorizontal()` for layout composition
+- ✅ REQUIRED: Dynamic sizing using `lipgloss.Width()` and `lipgloss.Height()` best practices
+- ✅ REQUIRED: Centralized theme system in `ui/theme.go` for consistent styling
+- ❌ FORBIDDEN: Custom layout engines, manual dimension calculations, reinventing the wheel
+
+**Modals/overlays:** Use `lipgloss.Place()` for absolute positioning
+
+**This architecture follows industry-standard TUI application patterns.**
+
 ## Architecture
 
 ### Core Components
@@ -80,9 +93,12 @@ execution:
 - **main.go**: Entry point, command-line parsing, model initialization, and tea.Model wrapper
 - **types/model.go**: Core data structures (Settings, Permission, Duplicate, Action, Model)
 - **settings.go**: Settings file loading, parsing, and git repository detection
-- **ui.go**: Bubble Tea UI implementation with two-panel layout
+- **ui/**: Pure Bubble Tea + Lipgloss UI module using industry-standard patterns
+  - `main.go`: Core UI rendering logic with `lipgloss.JoinVertical()` composition
+  - `components.go`: UI components (header, footer, content) with dynamic sizing
+  - `helpers.go`: Key handling and modal rendering using pure state management
+  - `theme.go`: Centralized color palette and style definitions
 - **actions.go**: Action queue system for permission moves/edits
-- **styles.go**: Lipgloss styling definitions
 - **interfaces.go**: Interface definitions for application components
 - **delegate.go**: Custom list delegate for permissions display
 - **logging.go**: Logging utilities and no-op handler
@@ -94,14 +110,6 @@ execution:
   - `layout.go`: Layout diagnostics and inspection
   - `logging.go`: Debug event logging system
   - `slog_handler.go`: Custom slog handler for debug integration
-- **layout/**: Layout engine for responsive terminal UI components
-  - `engine.go`: Core layout calculation engine
-  - `calculator.go`: Dimension and positioning calculations
-  - `components.go`: UI component layout definitions
-  - `constraints.go`: Layout constraint system
-  - `events.go`: Layout event handling
-  - `integration.go`: Integration with Bubble Tea framework
-  - `debug.go`: Layout debugging utilities
 
 ### Key Data Flow
 
@@ -112,16 +120,21 @@ execution:
 
 ### TUI Design Patterns
 
-- Two-panel layout with tab navigation
-- Viewport scrolling for each panel
-- Search mode with highlighting
-- Confirmation dialogs for destructive operations
-- ASCII status indicators for terminal compatibility
+- **Pure Lipgloss Composition**: Using `lipgloss.JoinVertical()` and `lipgloss.JoinHorizontal()`
+- **Dynamic Sizing**: `lipgloss.Width()` and `lipgloss.Height()` for responsive layouts
+- **Centralized Theming**: All colors and styles defined in `ui/theme.go`
+- **Component Architecture**: Header, content, status bar, footer as separate components
+- **Two-panel navigation**: TAB switching between duplicates and organization screens
+- **Three-column layout**: Local/Repo/User permission organization
+- **Context-sensitive UI**: Hotkeys and status information change based on current screen
 
 ### Terminal UI Development Notes
 
-- When calculating line widths, use `wc -m` not `wc -c`. The latter counts bytes not characters, which causes issues with Unicode characters used in TUI rendering
-- `wc -m` includes the final carriage return, so subtract 1 from the result
+- **Use Dynamic Sizing**: Always use `lipgloss.Width()` and `lipgloss.Height()` instead of manual calculations
+- **Account for Borders/Padding**: When calculating available space, subtract border + padding overhead
+- **Centralized Colors**: Use theme constants from `ui/theme.go` instead of hardcoded color values
+- **Component-based**: Each UI section (header, content, status, footer) is a separate component
+- **Responsive Layout**: Columns automatically adjust to terminal width using `c.width / 3` pattern
 
 ## Special Features
 
@@ -150,7 +163,8 @@ The application includes an HTTP debug server for development and debugging:
 - **Activation**: Use `--debug-server` flag with optional `--debug-port` (default: 8080)
 - **Thread-safe**: Uses direct field access with proper mutex locking, no reflection
 - **Interface**: Use `scripts/debug-api.sh` script (designed for Claude Code usage)
-- **Status**: **EXPERIMENTAL/WIP** - Debug endpoints are new and may contain bugs; always consider that debug tooling itself might be faulty when diagnosing issues
+- **Status**: **EXPERIMENTAL/WIP** - Debug endpoints are new and may contain bugs; always consider
+  that debug tooling itself might be faulty when diagnosing issues
 
 ### Development Workflow with Debug API
 
@@ -159,21 +173,19 @@ The application includes an HTTP debug server for development and debugging:
 Claude Code MUST follow this exact protocol when debugging or developing:
 
 1. **NEVER run `scripts/dev.sh` directly** - This requires TTY and is user-only
-2. **ALWAYS check server status first** - Run `scripts/debug-api.sh health` before any debug operations
-3. **If health check fails** - Ask user to run `scripts/dev.sh` and wait for confirmation
-4. **Only proceed with debug operations after health check passes**
+1. **NEVER** run the `claude-permissions` executable directly -- it requires TTY which Claude Code
+   has no access to.
+3. **If any debug endpoint fails** - Ask user to run `scripts/dev.sh` and wait for confirmation
 
 **Standard Development Process:**
 1. **User runs `scripts/dev.sh`** to start live reload development server
-2. **Claude checks health** - ALWAYS run `scripts/debug-api.sh health` first
 3. **Claude makes code changes** - dev.sh automatically rebuilds and restarts application
-4. **Claude verifies live reload** - Check `scripts/debug-api.sh health` after each change
 5. **Claude uses debug API** - Inspect application state, test functionality, and diagnose issues
 6. **Iterate** - repeat steps 2-5 until task is complete
 
 **Debug Server Dependency Rule:**
 - All debug operations (state, logs, snapshot, input) require the debug server to be running
-- If any debug API call fails, immediately check health and ask user to restart dev.sh if needed
+- If any debug API call fails, immediately ask user to restart dev.sh if needed
 - Never attempt to start the server yourself - always request user to do it
 
 This workflow ensures rapid development with real-time feedback and debugging capabilities.
@@ -183,9 +195,6 @@ This workflow ensures rapid development with real-time feedback and debugging ca
 Use `scripts/debug-api.sh` for easy API access:
 
 ```bash
-# Check debug server status
-scripts/debug-api.sh health
-
 # Get complete application state
 scripts/debug-api.sh state
 
@@ -232,11 +241,13 @@ Test data is available in `testdata/` directory with sample settings files for a
 ## Go Project Layout
 
 This project follows a simple CLI tool structure with `main.go` in the root and specialized packages
-(`debug/`, `layout/`, `types/`) for focused functionality. The `testdata/` directory contains test
+(`debug/`, `ui/`, `types/`) for focused functionality. The `testdata/` directory contains test
 files, following Go toolchain conventions.
 
-## Requirements
+### UI Architecture
 
-- Go 1.24+
-- Terminal with ANSI color support
-- Optional: chezmoi for dotfiles integration
+The `ui/` package implements pure Bubble Tea + Lipgloss patterns:
+- **Industry-standard composition**: Uses `lipgloss.JoinVertical()` and `lipgloss.JoinHorizontal()`
+- **Component-based**: Header, content, status bar, footer as separate components
+- **Centralized theming**: All colors and styles in `ui/theme.go`
+- **Dynamic sizing**: Responsive layouts using lipgloss best practices

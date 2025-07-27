@@ -8,11 +8,11 @@ import (
 
 // StateResponse represents the complete application state
 type StateResponse struct {
-	UI        UIState        `json:"ui"`
-	Data      DataState      `json:"data"`
-	Files     FilesState     `json:"files"`
-	Errors    []string       `json:"errors"`
-	Timestamp string         `json:"timestamp"`
+	UI        UIState    `json:"ui"`
+	Data      DataState  `json:"data"`
+	Files     FilesState `json:"files"`
+	Errors    []string   `json:"errors"`
+	Timestamp string     `json:"timestamp"`
 }
 
 // UIState represents the user interface state
@@ -87,22 +87,22 @@ func extractApplicationState(model *types.Model) StateResponse {
 // extractUIState extracts UI-related state from the model
 func extractUIState(model *types.Model) UIState {
 	return UIState{
-		ActivePanel:   panelNumberToName(model.ActivePanel),  // Direct field access
-		SelectedItems: []string{}, // TODO: Extract from PermissionsList if needed
-		ListPosition:  0,          // TODO: Extract from PermissionsList if needed
-		FilterText:    "",         // TODO: Extract from PermissionsList if needed
-		ConfirmMode:   model.ConfirmMode,    // Direct field access
-		ConfirmText:   model.ConfirmText,    // Direct field access
-		StatusMessage: model.StatusMessage,  // Direct field access
+		ActivePanel:   panelNumberToName(model.ActivePanel), // Direct field access
+		SelectedItems: []string{},                           // TODO: Extract from PermissionsList if needed
+		ListPosition:  0,                                    // TODO: Extract from PermissionsList if needed
+		FilterText:    "",                                   // TODO: Extract from PermissionsList if needed
+		ConfirmMode:   model.ConfirmMode,                    // Direct field access
+		ConfirmText:   model.ConfirmText,                    // Direct field access
+		StatusMessage: model.StatusMessage,                  // Direct field access
 	}
 }
 
 // extractDataState extracts data-related state from the model
 func extractDataState(model *types.Model) DataState {
 	return DataState{
-		PermissionsCount: len(model.Permissions),  // Direct field access
-		DuplicatesCount:  len(model.Duplicates),   // Direct field access
-		ActionsQueued:    len(model.Actions),      // Direct field access
+		PermissionsCount: len(model.Permissions), // Direct field access
+		DuplicatesCount:  len(model.Duplicates),  // Direct field access
+		ActionsQueued:    len(model.Actions),     // Direct field access
 		PendingMoves:     extractPendingMoves(model.Actions),
 		PendingEdits:     extractPendingEdits(model.Actions),
 	}
@@ -111,12 +111,12 @@ func extractDataState(model *types.Model) DataState {
 // extractFilesState extracts settings files state from the model
 func extractFilesState(model *types.Model) FilesState {
 	return FilesState{
-		UserExists:  model.UserLevel.Exists,   // Direct field access
-		RepoExists:  model.RepoLevel.Exists,   // Direct field access
-		LocalExists: model.LocalLevel.Exists,  // Direct field access
-		UserPath:    model.UserLevel.Path,     // Direct field access
-		RepoPath:    model.RepoLevel.Path,     // Direct field access
-		LocalPath:   model.LocalLevel.Path,    // Direct field access
+		UserExists:  model.UserLevel.Exists,  // Direct field access
+		RepoExists:  model.RepoLevel.Exists,  // Direct field access
+		LocalExists: model.LocalLevel.Exists, // Direct field access
+		UserPath:    model.UserLevel.Path,    // Direct field access
+		RepoPath:    model.RepoLevel.Path,    // Direct field access
+		LocalPath:   model.LocalLevel.Path,   // Direct field access
 	}
 }
 
@@ -124,7 +124,7 @@ func extractFilesState(model *types.Model) FilesState {
 func extractPendingMoves(actions []types.Action) []string {
 	var moves []string
 	for _, action := range actions {
-		if action.Type == types.ActionMove {  // Direct field access
+		if action.Type == types.ActionMove { // Direct field access
 			moves = append(moves, action.Permission+"→"+action.ToLevel)
 		}
 	}
@@ -135,7 +135,7 @@ func extractPendingMoves(actions []types.Action) []string {
 func extractPendingEdits(actions []types.Action) []string {
 	var edits []string
 	for _, action := range actions {
-		if action.Type == "edit" {  // Direct field access
+		if action.Type == "edit" { // Direct field access
 			edits = append(edits, action.Permission+"→"+action.NewName)
 		}
 	}
