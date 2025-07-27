@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"claude-permissions/types"
 )
 
 // InputRequest represents the input injection request
@@ -107,6 +109,38 @@ func (ds *DebugServer) handleReset(w http.ResponseWriter, r *http.Request) {
 }
 
 // captureModelState captures a snapshot of the current model state using direct field access
+// extractSelectedItemsForCapture extracts currently selected items for input capture
+func extractSelectedItemsForCapture(model *types.Model) []string {
+	var selectedItems []string
+
+	// Get permissions for the currently focused column
+	var targetLevel string
+	switch model.FocusedColumn {
+	case 0:
+		targetLevel = types.LevelLocal
+	case 1:
+		targetLevel = types.LevelRepo
+	case 2:
+		targetLevel = types.LevelUser
+	}
+
+	// Find permissions in the focused column
+	var columnPerms []types.Permission
+	for _, perm := range model.Permissions {
+		if perm.CurrentLevel == targetLevel {
+			columnPerms = append(columnPerms, perm)
+		}
+	}
+
+	// Add the currently selected permission if it exists
+	selectionIndex := model.ColumnSelections[model.FocusedColumn]
+	if selectionIndex < len(columnPerms) {
+		selectedItems = append(selectedItems, columnPerms[selectionIndex].Name)
+	}
+
+	return selectedItems
+}
+
 func (ds *DebugServer) captureModelState() ModelStateCapture {
 	model := ds.GetModel()
 	if model == nil {
@@ -117,9 +151,11 @@ func (ds *DebugServer) captureModelState() ModelStateCapture {
 	defer model.Mutex.RUnlock()
 
 	return ModelStateCapture{
-		ActivePanel:   model.ActivePanel,   // Direct field access
-		SelectedItems: []string{},          // TODO: Extract from lists if needed
-		FilterText:    "",                  // TODO: Extract from lists if needed
+		ActivePanel: model.ActivePanel, // Direct field access
+		SelectedItems: extractSelectedItemsForCapture(
+			model,
+		), // Extract from current column selection
+		FilterText:    "",                  // No filter in current UI implementation
 		ConfirmMode:   model.ConfirmMode,   // Direct field access
 		ActionsCount:  len(model.Actions),  // Direct field access
 		StatusMessage: model.StatusMessage, // Direct field access

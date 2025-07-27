@@ -12,7 +12,6 @@ import (
 	"claude-permissions/types"
 	"claude-permissions/ui"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/timer"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -159,31 +158,14 @@ func loadAllLevels() (types.SettingsLevel, types.SettingsLevel, types.SettingsLe
 }
 
 // createUIComponents creates the UI components
-func createUIComponents(
-	permissions []types.Permission,
-	duplicates []types.Duplicate,
-) (list.Model, table.Model, viewport.Model) {
-	// Create list items for permissions
-	listItems := make([]list.Item, len(permissions))
-	for i, perm := range permissions {
-		listItems[i] = perm
-	}
-
-	// Create list with custom delegate
-	delegate := PermissionDelegate{}
-	permissionsList := list.New(listItems, delegate, 0, 0)
-	permissionsList.SetShowStatusBar(false)
-	permissionsList.SetShowHelp(false)
-	permissionsList.SetFilteringEnabled(true)
-	permissionsList.SetShowTitle(false)
-
+func createUIComponents(duplicates []types.Duplicate) (table.Model, viewport.Model) {
 	// Create table for duplicates panel
 	duplicatesTable := createDuplicatesTable(duplicates)
 
 	// Create viewport for actions panel
 	actionsView := viewport.New(0, 0)
 
-	return permissionsList, duplicatesTable, actionsView
+	return duplicatesTable, actionsView
 }
 
 func initialModel() (*types.Model, error) {
@@ -198,7 +180,7 @@ func initialModel() (*types.Model, error) {
 	// Detect cross-level duplicates
 	duplicates := detectDuplicates(userLevel, repoLevel, localLevel)
 
-	permissionsList, duplicatesTable, actionsView := createUIComponents(permissions, duplicates)
+	duplicatesTable, actionsView := createUIComponents(duplicates)
 
 	// Determine starting screen based on duplicates
 	startingScreen := types.ScreenOrganization
@@ -227,7 +209,6 @@ func initialModel() (*types.Model, error) {
 		ColumnSelections: [3]int{0, 0, 0},
 		Width:            0, // Will be set by terminal size message
 		Height:           0, // Will be set by terminal size message
-		PermissionsList:  permissionsList,
 		DuplicatesTable:  duplicatesTable,
 		ActionsView:      actionsView,
 		ConfirmMode:      false,

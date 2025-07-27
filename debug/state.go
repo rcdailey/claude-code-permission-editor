@@ -86,13 +86,15 @@ func extractApplicationState(model *types.Model) StateResponse {
 // extractUIState extracts UI-related state from the model
 func extractUIState(model *types.Model) UIState {
 	return UIState{
-		ActivePanel:   panelNumberToName(model.ActivePanel), // Direct field access
-		SelectedItems: []string{},                           // TODO: Extract from PermissionsList if needed
-		ListPosition:  0,                                    // TODO: Extract from PermissionsList if needed
-		FilterText:    "",                                   // TODO: Extract from PermissionsList if needed
-		ConfirmMode:   model.ConfirmMode,                    // Direct field access
-		ConfirmText:   model.ConfirmText,                    // Direct field access
-		StatusMessage: model.StatusMessage,                  // Direct field access
+		ActivePanel: panelNumberToName(model.ActivePanel), // Direct field access
+		SelectedItems: extractSelectedItems(
+			model,
+		), // Extract from current column selection
+		ListPosition:  model.ColumnSelections[model.FocusedColumn], // Current selection in focused column
+		FilterText:    "",                                          // No filter in current UI implementation
+		ConfirmMode:   model.ConfirmMode,                           // Direct field access
+		ConfirmText:   model.ConfirmText,                           // Direct field access
+		StatusMessage: model.StatusMessage,                         // Direct field access
 	}
 }
 
@@ -116,6 +118,38 @@ func extractFilesState(model *types.Model) FilesState {
 		RepoPath:    model.RepoLevel.Path,    // Direct field access
 		LocalPath:   model.LocalLevel.Path,   // Direct field access
 	}
+}
+
+// extractSelectedItems extracts currently selected items based on UI state
+func extractSelectedItems(model *types.Model) []string {
+	var selectedItems []string
+
+	// Get permissions for the currently focused column
+	var targetLevel string
+	switch model.FocusedColumn {
+	case 0:
+		targetLevel = types.LevelLocal
+	case 1:
+		targetLevel = types.LevelRepo
+	case 2:
+		targetLevel = types.LevelUser
+	}
+
+	// Find permissions in the focused column
+	var columnPerms []types.Permission
+	for _, perm := range model.Permissions {
+		if perm.CurrentLevel == targetLevel {
+			columnPerms = append(columnPerms, perm)
+		}
+	}
+
+	// Add the currently selected permission if it exists
+	selectionIndex := model.ColumnSelections[model.FocusedColumn]
+	if selectionIndex < len(columnPerms) {
+		selectedItems = append(selectedItems, columnPerms[selectionIndex].Name)
+	}
+
+	return selectedItems
 }
 
 // extractPendingEdits extracts pending edits from actions

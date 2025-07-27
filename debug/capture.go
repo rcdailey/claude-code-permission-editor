@@ -245,9 +245,9 @@ func extractLayoutDiagnostics(model *types.Model) *LayoutResponse {
 			"width":  4,
 		},
 		ComponentSizes: map[string]interface{}{
-			"permissions_list": map[string]int{
-				"width":  model.PermissionsList.Width(),
-				"height": model.PermissionsList.Height(),
+			"content_area": map[string]int{
+				"width":  model.Width - 6,  // ContentWidthBuffer from ui/components.go
+				"height": model.Height - 8, // Approximate content height accounting for header/footer/status
 			},
 			"duplicates_table": map[string]int{
 				"width":  model.DuplicatesTable.Width(),

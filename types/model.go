@@ -3,7 +3,6 @@ package types
 import (
 	"sync"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/timer"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -106,7 +105,6 @@ type Model struct {
 	ColumnSelections [3]int // Selection index for each column
 
 	// UI components
-	PermissionsList list.Model     // Changed from: permissionsList
 	DuplicatesTable table.Model    // Changed from: duplicatesTable
 	ActionsView     viewport.Model // Changed from: actionsView
 
