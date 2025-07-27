@@ -167,22 +167,24 @@ The application includes an HTTP debug server for development and debugging:
 
 ### Development Workflow with Debug API
 
-**CRITICAL: Claude Code Debug Workflow Protocol**
+#### Claude Code Debug Workflow Protocol
 
 Claude Code MUST follow this exact protocol when debugging or developing:
 
 1. **NEVER run `scripts/dev.sh` directly** - This requires TTY and is user-only
 1. **NEVER** run the `claude-permissions` executable directly -- it requires TTY which Claude Code
    has no access to.
-3. **If any debug endpoint fails** - Ask user to run `scripts/dev.sh` and wait for confirmation
+1. **If any debug endpoint fails** - Ask user to run `scripts/dev.sh` and wait for confirmation
 
-**Standard Development Process:**
+#### Standard Development Process
+
 1. **User runs `scripts/dev.sh`** to start live reload development server
-3. **Claude makes code changes** - dev.sh automatically rebuilds and restarts application
-5. **Claude uses debug API** - Inspect application state, test functionality, and diagnose issues
-6. **Iterate** - repeat steps 2-5 until task is complete
+1. **Claude makes code changes** - dev.sh automatically rebuilds and restarts application
+1. **Claude uses debug API** - Inspect application state, test functionality, and diagnose issues
+1. **Iterate** - repeat steps 2-5 until task is complete
 
-**Debug Server Dependency Rule:**
+#### Debug Server Dependency Rule
+
 - All debug operations (state, logs, snapshot, input) require the debug server to be running
 - If any debug API call fails, immediately ask user to restart dev.sh if needed
 - Never attempt to start the server yourself - always request user to do it
@@ -246,6 +248,7 @@ files, following Go toolchain conventions.
 ### UI Architecture
 
 The `ui/` package implements pure Bubble Tea + Lipgloss patterns:
+
 - **Industry-standard composition**: Uses `lipgloss.JoinVertical()` and `lipgloss.JoinHorizontal()`
 - **Component-based**: Header, content, status bar, footer as separate components
 - **Centralized theming**: All colors and styles in `ui/theme.go`

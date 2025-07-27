@@ -1,103 +1,106 @@
 # Claude Code Permission Editor
 
-An interactive TUI tool for managing Claude Code tool permissions across different settings levels.
+An interactive terminal application for managing Claude Code tool permissions across different
+settings levels.
 
 ## Overview
 
-This tool provides a visual interface to manage Claude Code permissions across three levels:
+While Claude Code has built-in permission management, it's clunky and limited. This tool provides a
+better editing workflow that's quicker and easier to use.
+
+Manage Claude Code permissions across three levels:
+
 - **User level**: `~/.claude/settings.json` (with chezmoi support)
 - **Repo level**: `{REPO}/.claude/settings.json`
 - **Local level**: `{REPO}/.claude/settings.local.json`
 
 ## Features
 
-- Interactive terminal UI with streamlined two-panel layout
-- Two-phase workflow: queue actions, then review and execute
-- Consolidated permissions view across all levels
+- Interactive terminal interface for permission management
+- Move permissions between User/Repo/Local levels
 - Automatic duplicate detection and resolution
-- Move permissions between levels
-- Full-screen confirmation with comprehensive action summary
-- Search functionality with highlighting
+- Search functionality
 - Chezmoi dotfiles integration
-- Git repository auto-detection
+- Safe: only modifies permission arrays, preserves other settings
 
-## Quick Start
+## Installation
 
-### Build and Run
+### Download Binary
+
+Download the latest release from GitHub releases page, or build from source:
 
 ```bash
-# Quick test with sample data
-./scripts/test.sh
+go install github.com/rcdailey/claude-code-permission-editor@latest
+```
 
-# Build for production use
+### Build from Source
+
+```bash
+git clone https://github.com/rcdailey/claude-code-permission-editor.git
+cd claude-code-permission-editor
 go build -o claude-permissions .
 ```
+
+## Usage
 
 ### Basic Usage
 
 ```bash
-# Interactive mode (normal use)
+# Start the application
 ./claude-permissions
 
-# With debug server for development
-./claude-permissions --debug-server
-
-# Override file paths for testing
+# Test with sample data
 ./claude-permissions \
   --user-file="testdata/user-settings.json" \
   --repo-file="testdata/repo-settings.json" \
   --local-file="testdata/local-settings.json"
 ```
 
-## Interface
+## How to Use
 
-### Navigation
-- `↑↓`: Navigate lists
-- `TAB`: Switch between panels
-- `SPACE`: Select/deselect items
-- `A`: Select all
-- `N`: Deselect all
+The application provides context-sensitive help in the footer that shows available keys for each
+screen.
 
-### Actions
-- `U/R/L`: Move selected permissions to User/Repo/Local level
-- `/`: Search permissions
-- `ENTER`: Preview and apply changes
-- `C`: Clear all pending actions
-- `Q`: Quit
+### Duplicates Screen
 
-## User Interface
+- `↑↓`: Navigate between duplicate conflicts
+- `1/2/3`: Keep permission in LOCAL/REPO/USER level
+- `TAB`: Switch to organization screen
+- `ENTER`: Save changes and continue
+- `ESC`: Cancel/exit (if there are pending changes)
 
-### Two-Phase Workflow
+### Organization Screen
 
-The application follows a two-phase approach to ensure safe permission management:
+- `↑↓`: Navigate within current column
+- `←→`: Switch between columns (Local/Repo/User)
+- `1/2/3`: Move selected permission to LOCAL/REPO/USER level
+- `TAB`: Switch to duplicates screen
+- `ENTER`: Save changes and exit
+- `ESC`: Reset all pending changes
 
-**Phase 1 - Action Planning (Main Screen):**
-- **Permissions Panel**: Browse and select permissions to move between levels
-- **Duplicates Panel**: Resolve conflicts by choosing which level to keep
-- Navigate with TAB, select items, queue up changes
-- No files are modified during this phase
+### Global Keys
 
-**Phase 2 - Review & Execute (Confirmation Screen):**
-- Full-screen summary of all queued actions
-- Shows exactly what will be changed before applying
-- Confirm with ENTER to execute, or ESC to return and modify
+- `Q`: Quit application
+- `Ctrl+C`: Force quit
 
 ## Requirements
 
 - Go 1.21+
 - Terminal supporting ANSI colors
 
-## Testing
+## How It Works
 
-```bash
-# Run comprehensive tests
-./scripts/verify.sh
-```
+The application loads your Claude Code settings from all three levels and presents them in a unified
+interface. You can:
 
-## Implementation Notes
+1. **Browse permissions** across User, Repo, and Local levels
+2. **Move permissions** between levels using keyboard shortcuts
+3. **Resolve duplicates** when the same permission exists at multiple levels
+4. **Save changes** to update your settings files
 
-- Built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea) TUI framework
-- Only modifies "allow" permissions arrays in JSON files
-- Preserves all other settings in JSON files
-- Supports chezmoi dotfiles when `chezmoi` command is available
-- Auto-detects git repositories for repo/local level settings
+Only permission arrays are modified - all other settings remain untouched.
+
+## Support
+
+For issues and feature requests, please visit the [GitHub
+repository](https://github.com/rcdailey/claude-code-permission-editor).

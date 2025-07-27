@@ -20,3 +20,9 @@ repos:
   hooks:
   - id: golines
     args: [--max-len=100, --base-formatter=goimports]
+
+- repo: https://github.com/DavidAnson/markdownlint-cli2
+  rev: v0.18.1
+  hooks:
+  - id: markdownlint-cli2
+    args: [--fix]
