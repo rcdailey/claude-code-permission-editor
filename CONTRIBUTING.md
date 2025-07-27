@@ -70,32 +70,6 @@ The debug server provides endpoints for:
 - Input simulation for testing
 - Screen content capture
 
-#### Debug API
-
-Use the `scripts/debug-api.sh` helper script to interact with the debug server:
-
-```bash
-# View current application state
-scripts/debug-api.sh state
-
-# Get layout diagnostics
-scripts/debug-api.sh layout
-
-# Capture current screen content
-scripts/debug-api.sh snapshot --raw
-
-# View debug event logs
-scripts/debug-api.sh logs
-
-# Simulate key inputs for testing
-scripts/debug-api.sh input tab
-scripts/debug-api.sh input enter
-scripts/debug-api.sh input up
-
-# Reset application state
-scripts/debug-api.sh reset
-```
-
 **Note**: The debug server is experimental and primarily useful for development and automated testing.
 
 ## Architecture

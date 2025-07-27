@@ -204,8 +204,11 @@ scripts/debug-api.sh state
 # Get layout diagnostics
 scripts/debug-api.sh layout
 
-# Capture screen content (with ANSI codes stripped)
-scripts/debug-api.sh snapshot --raw
+# Capture screen content (ANSI codes stripped by default)
+scripts/debug-api.sh snapshot
+
+# Capture screen content with ANSI color codes
+scripts/debug-api.sh snapshot --color
 
 # Get debug event logs (returns all entries and clears buffer)
 scripts/debug-api.sh logs

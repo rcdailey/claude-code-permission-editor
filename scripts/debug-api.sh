@@ -15,7 +15,7 @@ COMMAND=""
 PORT="$DEFAULT_PORT"
 HOST="$DEFAULT_HOST"
 KEY=""
-RAW=false
+COLOR=false
 
 usage() {
     cat << EOF
@@ -34,7 +34,7 @@ Commands:
 Options:
   --port <port>   - Debug server port (default: $DEFAULT_PORT)
   --host <host>   - Debug server host (default: $DEFAULT_HOST)
-  --raw           - For snapshot: strip ANSI codes
+  --color         - For snapshot: include ANSI color codes (default: stripped)
 
 Key Input Examples:
   tab, enter, escape, up, down, left, right, space
@@ -44,7 +44,7 @@ Examples:
   $0 health
   $0 state
   $0 layout
-  $0 snapshot --raw
+  $0 snapshot --color
   $0 logs
   $0 input tab
   $0 input enter
@@ -68,8 +68,8 @@ while [[ $# -gt 0 ]]; do
             HOST="$2"
             shift 2
             ;;
-        --raw)
-            RAW=true
+        --color)
+            COLOR=true
             shift
             ;;
         --help|-h)
@@ -152,8 +152,8 @@ case "$COMMAND" in
         ;;
 
     snapshot)
-        if [[ "$RAW" == true ]]; then
-            make_get_request "/snapshot" "raw=true"
+        if [[ "$COLOR" == true ]]; then
+            make_get_request "/snapshot" "color=true"
         else
             make_get_request "/snapshot"
         fi

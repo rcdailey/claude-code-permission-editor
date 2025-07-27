@@ -61,8 +61,9 @@ func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get query parameters
-	raw := getQueryParamBool(r, "raw", false)
+	// Get query parameters - color is opt-in, raw is default
+	color := getQueryParamBool(r, "color", false)
+	raw := !color
 
 	model := ds.GetModel()
 	if model == nil {
@@ -145,6 +146,7 @@ func (ds *DebugServer) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 		"width":  width,
 		"height": height,
 		"raw":    raw,
+		"color":  color,
 	})
 
 	ds.writeJSONResponse(w, response)
