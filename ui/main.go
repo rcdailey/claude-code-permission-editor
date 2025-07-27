@@ -7,14 +7,14 @@ import (
 
 	"claude-permissions/types"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // Init initializes the model
 func Init(_ *types.Model) tea.Cmd {
-	// Request initial terminal size from Bubble Tea
-	return tea.WindowSize()
+	// WindowSizeMsg will be sent automatically in v2
+	return nil
 }
 
 // Update handles all Bubble Tea messages using pure state management
@@ -42,21 +42,24 @@ func View(m *types.Model) string {
 	m.Mutex.RLock()
 	defer m.Mutex.RUnlock()
 
-	if m.ShowModal {
-		return renderModal(m)
-	}
-
-	if m.ConfirmMode {
-		return renderConfirmation(m)
-	}
-
 	// Handle case when terminal dimensions haven't been set yet
 	if m.Width == 0 || m.Height == 0 {
 		return "Initializing layout... (waiting for terminal size)"
 	}
 
-	// Pure lipgloss composition - no layout engine needed
-	return renderMainLayout(m)
+	var baseContent string
+	if m.ConfirmMode {
+		baseContent = renderConfirmation(m)
+	} else {
+		baseContent = renderMainLayout(m)
+	}
+
+	// Overlay modal if shown
+	if m.ShowModal {
+		return renderModal(m, baseContent)
+	}
+
+	return baseContent
 }
 
 // renderMainLayout renders the main UI using pure lipgloss composition
@@ -122,13 +125,13 @@ func renderHeaderContent(m *types.Model) string {
 
 	// Build file info with themed styling
 	fileInfo := fmt.Sprintf(
-		"Files: User:%s%s Repo:%s%s Local:%s%s",
-		userStatusStyle.Render(userStatus),
-		CountStyle.Render(fmt.Sprintf("(%d)", len(m.UserLevel.Permissions))),
-		repoStatusStyle.Render(repoStatus),
-		CountStyle.Render(fmt.Sprintf("(%d)", len(m.RepoLevel.Permissions))),
+		"Files: Local:%s%s Repo:%s%s User:%s%s",
 		localStatusStyle.Render(localStatus),
 		CountStyle.Render(fmt.Sprintf("(%d)", len(m.LocalLevel.Permissions))),
+		repoStatusStyle.Render(repoStatus),
+		CountStyle.Render(fmt.Sprintf("(%d)", len(m.RepoLevel.Permissions))),
+		userStatusStyle.Render(userStatus),
+		CountStyle.Render(fmt.Sprintf("(%d)", len(m.UserLevel.Permissions))),
 	)
 
 	// Current working directory with accent color
@@ -167,7 +170,7 @@ func renderFooterContent(m *types.Model) string {
 		row2Keys = []string{
 			AccentStyle.Render("1/2/3") + " · Move to LOCAL/REPO/USER",
 			AccentStyle.Render("ENTER") + " · Save & exit",
-			AccentStyle.Render("ESC") + " · Cancel/exit",
+			AccentStyle.Render("ESC") + " · Reset changes",
 		}
 	default:
 		// Generic footer

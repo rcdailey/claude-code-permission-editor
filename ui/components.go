@@ -6,7 +6,7 @@ import (
 
 	"claude-permissions/types"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // Level display constants to avoid goconst warnings
@@ -287,12 +287,12 @@ func (c *ContentComponent) renderPermissionItem(perm types.Permission, isSelecte
 func (c *ContentComponent) getOriginStyle(level string) lipgloss.Style {
 	switch level {
 	case types.LevelLocal:
-		return LocalLevelStyle
+		return LocalOriginStyle
 	case types.LevelRepo:
-		return RepoLevelStyle
+		return RepoOriginStyle
 	case types.LevelUser:
-		return UserLevelStyle
+		return UserOriginStyle
 	default:
-		return TextStyle
+		return OriginIndicatorStyle
 	}
 }

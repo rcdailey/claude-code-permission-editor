@@ -3,8 +3,8 @@ package types
 import (
 	"sync"
 
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/timer"
+	"github.com/charmbracelet/bubbles/v2/table"
+	"github.com/charmbracelet/bubbles/v2/timer"
 )
 
 // Constants for settings levels

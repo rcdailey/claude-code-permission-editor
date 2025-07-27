@@ -1,6 +1,6 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import "github.com/charmbracelet/lipgloss/v2"
 
 // Application color palette - centralized theme constants
 const (
@@ -81,7 +81,7 @@ var (
 
 	// Origin indicator styles for moved permissions
 	OriginIndicatorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8")).
+				Foreground(lipgloss.Color("244")).
 				Italic(true)
 )
 
@@ -90,4 +90,17 @@ var (
 	LocalLevelStyle = WarningStyle // Amber for Local
 	RepoLevelStyle  = InfoStyle    // Cyan for Repo
 	UserLevelStyle  = SuccessStyle // Green for User
+)
+
+// Darker level styles for origin indicators to match gray text contrast
+var (
+	LocalOriginStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("136")).
+				Italic(true)
+	RepoOriginStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("31")).
+			Italic(true)
+	UserOriginStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("28")).
+			Italic(true)
 )

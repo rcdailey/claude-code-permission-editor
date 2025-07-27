@@ -12,7 +12,7 @@ import (
 
 	"claude-permissions/types"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea/v2"
 )
 
 // ViewProvider interface for getting the rendered view
@@ -136,25 +136,25 @@ func (ds *DebugServer) SendInput(key string) error {
 	return nil
 }
 
-// convertKeyToMessage converts a string key to a tea.KeyMsg
+// convertKeyToMessage converts a string key to a tea.Msg
 func convertKeyToMessage(key string) (tea.Msg, error) {
 	switch key {
 	case "up", "arrow-up":
-		return tea.KeyMsg{Type: tea.KeyUp}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyUp}), nil
 	case "down", "arrow-down":
-		return tea.KeyMsg{Type: tea.KeyDown}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}), nil
 	case "left", "arrow-left":
-		return tea.KeyMsg{Type: tea.KeyLeft}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyLeft}), nil
 	case "right", "arrow-right":
-		return tea.KeyMsg{Type: tea.KeyRight}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyRight}), nil
 	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}), nil
 	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}), nil
 	case "escape", "esc":
-		return tea.KeyMsg{Type: tea.KeyEsc}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}), nil
 	case "space":
-		return tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}, nil
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeySpace, Text: " "}), nil
 	default:
 		return convertRuneKeyToMessage(key)
 	}
@@ -169,6 +169,8 @@ var keyMappings = map[string]rune{
 	"e": 'e', "E": 'e',
 	"c": 'c', "C": 'c',
 	"q": 'q', "Q": 'q',
+	"y": 'y', "Y": 'y',
+	"n": 'n', "N": 'n',
 	"/": '/',
 	"1": '1',
 	"2": '2',
@@ -178,7 +180,7 @@ var keyMappings = map[string]rune{
 // convertRuneKeyToMessage converts single character keys to messages
 func convertRuneKeyToMessage(key string) (tea.Msg, error) {
 	if r, ok := keyMappings[key]; ok {
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}}, nil
+		return tea.KeyPressMsg(tea.Key{Code: r, Text: string(r)}), nil
 	}
 	return nil, fmt.Errorf("unsupported key: %s", key)
 }

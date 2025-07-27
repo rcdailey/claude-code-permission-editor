@@ -5,8 +5,8 @@ import (
 
 	"claude-permissions/types"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // handleKeyPress handles keyboard input using pure state management
@@ -17,8 +17,23 @@ func handleKeyPress(m *types.Model, msg tea.KeyMsg) (*types.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	// Handle modal input first if modal is shown
+	if m.ShowModal {
+		return handleModalInput(m, key), nil
+	}
+
+	return handleNonModalKeys(m, msg, key)
+}
+
+// handleNonModalKeys handles key input when no modal is shown
+func handleNonModalKeys(m *types.Model, msg tea.KeyMsg, key string) (*types.Model, tea.Cmd) {
 	if key == "tab" {
 		return handleTabKey(m), nil
+	}
+
+	// Handle ESC key for reset functionality on permissions screen
+	if key == "escape" || key == "esc" || msg.Key().Code == tea.KeyEscape {
+		return handleEscapeKey(m), nil
 	}
 
 	// Handle number keys for moving permissions
@@ -267,9 +282,9 @@ func handleDuplicatesNavigation(m *types.Model, key string) *types.Model {
 	var keyMsg tea.KeyMsg
 	switch key {
 	case keyUp, "k":
-		keyMsg = tea.KeyMsg{Type: tea.KeyUp}
+		keyMsg = tea.KeyPressMsg(tea.Key{Code: tea.KeyUp})
 	case keyDown, "j":
-		keyMsg = tea.KeyMsg{Type: tea.KeyDown}
+		keyMsg = tea.KeyPressMsg(tea.Key{Code: tea.KeyDown})
 	}
 	m.DuplicatesTable, _ = m.DuplicatesTable.Update(keyMsg)
 	return m
@@ -307,10 +322,65 @@ func handleOrganizationNavigation(m *types.Model, key string) *types.Model {
 	return m
 }
 
-// renderModal renders a modal dialog using lipgloss.Place()
-func renderModal(m *types.Model) string {
-	// Simple modal placeholder - will be implemented properly later
-	return "Modal dialog will be implemented here"
+// renderModal renders a modal dialog using Lipgloss v2 Canvas and Layer compositing
+func renderModal(m *types.Model, baseContent string) string {
+	if !m.ShowModal {
+		return baseContent
+	}
+
+	// Calculate modal dimensions
+	contentWidth := 60
+
+	// Create modal content with high contrast styling
+	modalStyle := lipgloss.NewStyle().
+		Width(contentWidth).
+		Border(lipgloss.ThickBorder()).
+		BorderForeground(lipgloss.Color("11")).
+		Background(lipgloss.Color("0")).
+		Foreground(lipgloss.Color("15")).
+		Padding(1, 2)
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("11")).
+		Align(lipgloss.Center).
+		Width(contentWidth - 4) // Account for padding
+
+	bodyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Width(contentWidth-4). // Account for padding
+		Padding(1, 0)
+
+	// Style instructions consistently with footer hints using AccentStyle
+	instructionsStyle := lipgloss.NewStyle().
+		Align(lipgloss.Center).
+		Width(contentWidth-4). // Account for padding
+		Padding(1, 0, 0, 0)
+
+	title := titleStyle.Render(m.ModalTitle)
+	body := bodyStyle.Render(m.ModalBody)
+	// Style like footer: AccentStyle for keys, normal text for descriptions
+	instructions := instructionsStyle.Render(
+		AccentStyle.Render("Y/Enter") + " · Yes  |  " + AccentStyle.Render("N/ESC") + " · No",
+	)
+
+	modalContent := modalStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Left, title, body, instructions),
+	)
+
+	// Calculate modal dimensions after rendering
+	modalHeight := lipgloss.Height(modalContent)
+	modalWidth := lipgloss.Width(modalContent)
+
+	// Use Lipgloss v2 Canvas and Layer compositing for proper background visibility
+	baseLayer := lipgloss.NewLayer(baseContent)
+	modalLayer := lipgloss.NewLayer(modalContent).
+		X((m.Width - modalWidth) / 2).   // Center horizontally
+		Y((m.Height - modalHeight) / 2). // Center vertically
+		Z(1)                             // On top
+
+	canvas := lipgloss.NewCanvas(baseLayer, modalLayer)
+	return canvas.Render()
 }
 
 // renderConfirmation renders the confirmation screen
@@ -386,4 +456,105 @@ func formatAction(action types.Action) string {
 	default:
 		return action.Permission + " (" + action.Type + ")"
 	}
+}
+
+// handleEscapeKey handles ESC key with screen-specific behavior
+func handleEscapeKey(m *types.Model) *types.Model {
+	switch m.CurrentScreen {
+	case types.ScreenDuplicates:
+		// On duplicates screen: ESC should cancel/exit (only if no pending changes)
+		if hasPendingChanges(m) {
+			m.ShowModal = true
+			m.ModalTitle = "Exit with Pending Changes"
+			m.ModalBody = "You have pending permission moves or duplicate resolutions.\n\n" +
+				"Do you want to discard these changes and exit?"
+			m.ModalAction = "exit"
+		}
+		// If no pending changes, ESC does nothing (user should use Q to quit)
+	case types.ScreenOrganization:
+		// On organization screen: ESC should reset changes
+		if hasPendingChanges(m) {
+			m.ShowModal = true
+			m.ModalTitle = "Reset All Changes"
+			m.ModalBody = "Are you sure you want to reset all permission moves and duplicate resolutions?\n\n" +
+				"This will undo all pending changes and return permissions to their original state."
+			m.ModalAction = "reset"
+		}
+		// If no pending changes, ESC does nothing
+	}
+	return m
+}
+
+// handleModalInput handles keyboard input when modal is shown
+func handleModalInput(m *types.Model, key string) *types.Model {
+	switch key {
+	case "y", "Y", "enter":
+		switch m.ModalAction {
+		case "reset":
+			m = resetAllChanges(m)
+		case "exit":
+			// For exit action, reset changes and quit the application
+			m = resetAllChanges(m)
+			// Note: We can't directly quit from here, but we clear changes
+			// The user will need to press Q to actually quit
+		}
+		m.ShowModal = false
+		m.ModalTitle = ""
+		m.ModalBody = ""
+		m.ModalAction = ""
+	case "n", "N", "escape", "esc":
+		m.ShowModal = false
+		m.ModalTitle = ""
+		m.ModalBody = ""
+		m.ModalAction = ""
+	}
+	return m
+}
+
+// hasPendingChanges checks if there are any pending permission moves or duplicate resolutions
+func hasPendingChanges(m *types.Model) bool {
+	// Check if any permissions have been moved from their original level
+	for _, perm := range m.Permissions {
+		if perm.CurrentLevel != perm.OriginalLevel {
+			return true
+		}
+	}
+
+	// Check if any duplicates have been resolved
+	for _, dup := range m.Duplicates {
+		if dup.KeepLevel != "" {
+			return true
+		}
+	}
+
+	// Check if there are any queued actions
+	return len(m.Actions) > 0
+}
+
+// resetAllChanges resets all pending permission moves and duplicate resolutions
+func resetAllChanges(m *types.Model) *types.Model {
+	// Reset permissions to their original levels
+	for i := range m.Permissions {
+		originalLevel := m.Permissions[i].OriginalLevel
+		currentLevel := m.Permissions[i].CurrentLevel
+
+		if originalLevel != currentLevel {
+			// Move permission back to original level
+			movePermissionBetweenLevels(m, m.Permissions[i].Name, currentLevel, originalLevel)
+			m.Permissions[i].CurrentLevel = originalLevel
+		}
+	}
+
+	// Reset duplicate resolutions
+	for i := range m.Duplicates {
+		m.Duplicates[i].KeepLevel = ""
+	}
+
+	// Clear all queued actions
+	m.Actions = []types.Action{}
+
+	// Reset column selections to 0
+	m.ColumnSelections = [3]int{0, 0, 0}
+
+	return m
 }
