@@ -1,7 +1,9 @@
 {
   "allow": [
+    "Bash",
     "LS",
     "Task",
+    "WebSearch",
     "Write"
   ],
   "features": {

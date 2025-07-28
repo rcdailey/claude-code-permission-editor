@@ -1,6 +1,9 @@
 {
   "allow": [
+    "Bash",
     "Glob",
+    "Grep",
+    "Read",
     "mcp__github__create_issue",
     "mcp__ide__executeCode"
   ],
