@@ -7,6 +7,6 @@ command:
       --local-file="testdata/local-settings.json"
 watch:
   folders:
-  - "**.go"
+  - "./**/*.go"  # Fixed: **/*.go doesn't work due to tui-hotreload glob bug, use ./**/*.go instead
   - app.yaml
   interval: 100ms
