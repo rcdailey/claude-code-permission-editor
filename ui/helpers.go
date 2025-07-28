@@ -81,13 +81,33 @@ func handleNavigationKeys(m *types.Model, key string) *types.Model {
 	case keyDown, "j":
 		return handleUpDownNavigation(m, key)
 	case "left", "h":
-		if m.CurrentScreen == types.ScreenOrganization && m.FocusedColumn > 0 {
-			m.FocusedColumn--
-		}
+		return handleLeftNavigation(m)
 	case "right", "l":
-		if m.CurrentScreen == types.ScreenOrganization && m.FocusedColumn < 2 {
-			m.FocusedColumn++
+		return handleRightNavigation(m)
+	}
+	return m
+}
+
+// handleLeftNavigation handles left arrow navigation
+func handleLeftNavigation(m *types.Model) *types.Model {
+	if m.CurrentScreen == types.ScreenOrganization && m.FocusedColumn > 0 {
+		// Block navigation if there are unresolved duplicates
+		if hasUnresolvedDuplicates(m) {
+			return m
 		}
+		m.FocusedColumn--
+	}
+	return m
+}
+
+// handleRightNavigation handles right arrow navigation
+func handleRightNavigation(m *types.Model) *types.Model {
+	if m.CurrentScreen == types.ScreenOrganization && m.FocusedColumn < 2 {
+		// Block navigation if there are unresolved duplicates
+		if hasUnresolvedDuplicates(m) {
+			return m
+		}
+		m.FocusedColumn++
 	}
 	return m
 }
@@ -98,6 +118,10 @@ func handleNumberKeys(m *types.Model, key string) *types.Model {
 	case types.ScreenDuplicates:
 		return handleDuplicateResolution(m, key)
 	case types.ScreenOrganization:
+		// Block permission moves if there are unresolved duplicates
+		if hasUnresolvedDuplicates(m) {
+			return m
+		}
 		return handlePermissionMove(m, key)
 	}
 	return m
@@ -293,6 +317,8 @@ func handleDuplicatesNavigation(m *types.Model, key string) *types.Model {
 		keyMsg = tea.KeyPressMsg(tea.Key{Code: tea.KeyUp})
 	case keyDown, "j":
 		keyMsg = tea.KeyPressMsg(tea.Key{Code: tea.KeyDown})
+	default:
+		return m
 	}
 	m.DuplicatesTable, _ = m.DuplicatesTable.Update(keyMsg)
 	return m
@@ -300,6 +326,11 @@ func handleDuplicatesNavigation(m *types.Model, key string) *types.Model {
 
 // handleOrganizationNavigation handles up/down navigation for organization screen
 func handleOrganizationNavigation(m *types.Model, key string) *types.Model {
+	// Block navigation if there are unresolved duplicates
+	if hasUnresolvedDuplicates(m) {
+		return m
+	}
+
 	var levelPerms []string
 	switch m.FocusedColumn {
 	case 0:
@@ -698,4 +729,14 @@ func addPermissionToArraySorted(perms []string, permission string) []string {
 	perms[insertIndex] = permission
 
 	return perms
+}
+
+// hasUnresolvedDuplicates checks if there are any duplicates that haven't been resolved
+func hasUnresolvedDuplicates(m *types.Model) bool {
+	for _, dup := range m.Duplicates {
+		if dup.KeepLevel == "" {
+			return true
+		}
+	}
+	return false
 }

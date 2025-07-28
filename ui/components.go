@@ -92,7 +92,7 @@ const (
 	//
 	// Value determined through testing to provide optimal balance between
 	// maximizing usable space and preventing terminal overflow.
-	ContentWidthBuffer = 6
+	ContentWidthBuffer = 0
 )
 
 // NewContentComponent creates a new content component
@@ -151,20 +151,32 @@ func (c *ContentComponent) renderDuplicatesContent() string {
 	return tableStyle.Render(tableContent)
 }
 
-// renderOrganizationContent renders the three-column organization screen
+// renderOrganizationContent renders the three-column organization screen or blocking message
 func (c *ContentComponent) renderOrganizationContent() string {
 	if c.width <= 0 || c.height <= 0 {
 		return ""
 	}
 
+	// Check if there are unresolved duplicates - if so, show blocking message
+	if hasUnresolvedDuplicates(c.model) {
+		return c.renderBlockingMessage()
+	}
+
 	// Use centralized width calculation and divide among columns
 	totalContentWidth := c.getConsistentContentWidth()
-	columnWidth := totalContentWidth / 3
+	baseColumnWidth := totalContentWidth / 3
+	remainder := totalContentWidth % 3
+
+	// Distribute remainder to columns to use full width
+	columnWidths := []int{baseColumnWidth, baseColumnWidth, baseColumnWidth}
+	for i := 0; i < remainder; i++ {
+		columnWidths[i]++
+	}
 
 	// Render each column
-	localColumn := c.renderPermissionColumn(levelDisplayLocal, columnWidth, 0)
-	repoColumn := c.renderPermissionColumn(levelDisplayRepo, columnWidth, 1)
-	userColumn := c.renderPermissionColumn(levelDisplayUser, columnWidth, 2)
+	localColumn := c.renderPermissionColumn(levelDisplayLocal, columnWidths[0], 0)
+	repoColumn := c.renderPermissionColumn(levelDisplayRepo, columnWidths[1], 1)
+	userColumn := c.renderPermissionColumn(levelDisplayUser, columnWidths[2], 2)
 
 	// Join horizontally using pure lipgloss
 	return lipgloss.JoinHorizontal(lipgloss.Top, localColumn, repoColumn, userColumn)
@@ -296,4 +308,25 @@ func (c *ContentComponent) getOriginStyle(level string) lipgloss.Style {
 	default:
 		return OriginIndicatorStyle
 	}
+}
+
+// renderBlockingMessage renders the blocking message when duplicates need to be resolved
+func (c *ContentComponent) renderBlockingMessage() string {
+	contentWidth := c.getConsistentContentWidth()
+	if contentWidth < 20 {
+		contentWidth = 20
+	}
+
+	blockingStyle := lipgloss.NewStyle().
+		Width(contentWidth).
+		Height(c.height).
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(ColorBorderFocused)).
+		Padding(1).
+		Align(lipgloss.Center, lipgloss.Center)
+
+	message := "Duplicate permissions must be resolved before organizing permissions.\n\n" +
+		"Use TAB to switch to the Duplicates panel and resolve conflicts first."
+
+	return blockingStyle.Render(message)
 }

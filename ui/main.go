@@ -82,9 +82,8 @@ func renderMainLayout(m *types.Model) string {
 	statusContent := renderStatusBarContent(m)
 	statusHeight := lipgloss.Height(statusContent)
 
-	// Account for status bar, blank line, and column borders in content height calculation
-	// -3 for column border overhead + blank line
-	contentHeight := m.Height - headerHeight - footerHeight - statusHeight - 3
+	// Calculate content height: total minus header, footer, and status
+	contentHeight := m.Height - headerHeight - footerHeight - statusHeight
 
 	// Create content component
 	content := NewContentComponent(m.Width, contentHeight, m)
@@ -94,7 +93,6 @@ func renderMainLayout(m *types.Model) string {
 		headerContent,
 		content.View(),
 		statusContent,
-		"", // Blank line for visual separation between status bar and footer
 		footerContent,
 	)
 }
@@ -221,11 +219,16 @@ func renderDuplicatesStatusText(m *types.Model) string {
 			)
 		}
 	}
-	return "Step 1: Resolve Duplicates"
+	return "Resolve duplicate permissions"
 }
 
 // renderOrganizationStatusText generates status text for organization screen
 func renderOrganizationStatusText(m *types.Model) string {
+	// Check if duplicates are blocking permissions organization
+	if hasUnresolvedDuplicates(m) {
+		return "Duplicates must be resolved before organizing permissions"
+	}
+
 	columnPerms := getColumnPermissions(m)
 	if len(columnPerms) > 0 && m.ColumnSelections[m.FocusedColumn] < len(columnPerms) {
 		selectedPerm := columnPerms[m.ColumnSelections[m.FocusedColumn]]
