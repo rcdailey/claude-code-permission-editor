@@ -233,7 +233,7 @@ func createDuplicatesTable(duplicates []types.Duplicate) table.Model {
 	t := table.New(
 		table.WithColumns(columns),
 		table.WithRows(rows),
-		table.WithFocused(false),
+		table.WithFocused(true),
 		table.WithHeight(7),
 	)
 
