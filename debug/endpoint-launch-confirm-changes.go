@@ -29,12 +29,13 @@ type LaunchConfirmChangesRequest struct {
 
 // LaunchConfirmChangesResponse represents the response from launching confirm changes screen
 type LaunchConfirmChangesResponse struct {
-	Success        bool   `json:"success"`
-	PreviousScreen string `json:"previous_screen"`
-	NewScreen      string `json:"new_screen"`
-	ChangesApplied int    `json:"changes_applied"`
-	Error          string `json:"error,omitempty"`
-	Timestamp      string `json:"timestamp"`
+	Success        bool          `json:"success"`
+	PreviousScreen string        `json:"previous_screen"`
+	NewScreen      string        `json:"new_screen"`
+	ChangesApplied int           `json:"changes_applied"`
+	Error          string        `json:"error,omitempty"`
+	Snapshot       *SnapshotData `json:"snapshot,omitempty"`
+	Timestamp      string        `json:"timestamp"`
 }
 
 // LaunchConfirmChangesMsg is a custom message for launching confirm changes screen
@@ -114,7 +115,7 @@ func processLaunchRequest(
 	newScreen := screenNumberToName(getCurrentScreen(model))
 	model.Mutex.RUnlock()
 
-	return &LaunchConfirmChangesResponse{
+	response := &LaunchConfirmChangesResponse{
 		Success:        true,
 		PreviousScreen: previousScreen,
 		NewScreen:      newScreen,
@@ -124,7 +125,14 @@ func processLaunchRequest(
 			request.MockChanges.DuplicateResolutions,
 		),
 		Timestamp: getCurrentTimestamp(),
-	}, nil
+	}
+
+	// Capture snapshot after launching screen
+	if snapshot, err := captureSnapshot(ds, true); err == nil {
+		response.Snapshot = snapshot
+	}
+
+	return response, nil
 }
 
 // getCurrentScreen extracts the current screen value without importing types

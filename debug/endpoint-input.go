@@ -22,12 +22,13 @@ type InputRequest struct {
 
 // InputResponse represents the response to input injection
 type InputResponse struct {
-	PreviousPanel string   `json:"previous_panel"`
-	NewPanel      string   `json:"new_panel"`
-	StateChanges  []string `json:"state_changes"`
-	Success       bool     `json:"success"`
-	Error         string   `json:"error,omitempty"`
-	Timestamp     string   `json:"timestamp"`
+	PreviousPanel string        `json:"previous_panel"`
+	NewPanel      string        `json:"new_panel"`
+	StateChanges  []string      `json:"state_changes"`
+	Success       bool          `json:"success"`
+	Error         string        `json:"error,omitempty"`
+	Snapshot      *SnapshotData `json:"snapshot,omitempty"`
+	Timestamp     string        `json:"timestamp"`
 }
 
 // ModelStateCapture represents a snapshot of model state before/after input
@@ -84,6 +85,11 @@ func handleInput(ds *DebugServer, w http.ResponseWriter, r *http.Request) {
 		response.PreviousPanel = panelNumberToName(beforeState.ActivePanel)
 		response.NewPanel = panelNumberToName(afterState.ActivePanel)
 		response.StateChanges = analyzeStateChanges(beforeState, afterState)
+
+		// Capture snapshot after input processing
+		if snapshot, snapshotErr := captureSnapshot(ds, true); snapshotErr == nil {
+			response.Snapshot = snapshot
+		}
 	}
 
 	ds.logger.LogEvent("input_processed", map[string]interface{}{
