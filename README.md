@@ -1,5 +1,9 @@
 # Claude Code Permission Editor
 
+> [!WARNING]
+> This application is currently a work in progress and may not be fully functional. Use at your
+> own risk and consider backing up your settings files before use.
+
 An interactive terminal application for managing Claude Code tool permissions across different
 settings levels.
 
