@@ -16,6 +16,9 @@ PORT="$DEFAULT_PORT"
 HOST="$DEFAULT_HOST"
 KEY=""
 COLOR=false
+USER_FILE=""
+REPO_FILE=""
+LOCAL_FILE=""
 
 usage() {
     cat << EOF
@@ -30,11 +33,15 @@ Commands:
   input <key>               - Send key input to application
   reset                     - Reset application state
   launch-confirm-changes    - Launch confirmation screen with mock changes
+  load-settings             - Load settings from specified file paths
 
 Options:
-  --port <port>   - Debug server port (default: $DEFAULT_PORT)
-  --host <host>   - Debug server host (default: $DEFAULT_HOST)
-  --color         - For snapshot: include ANSI color codes (default: stripped)
+  --port <port>     - Debug server port (default: $DEFAULT_PORT)
+  --host <host>     - Debug server host (default: $DEFAULT_HOST)
+  --color           - For snapshot: include ANSI color codes (default: stripped)
+  --user-file <path>   - For load-settings: path to user settings file
+  --repo-file <path>   - For load-settings: path to repo settings file
+  --local-file <path>  - For load-settings: path to local settings file
 
 Key Input Examples:
   tab, enter, escape, up, down, left, right, space
@@ -50,13 +57,14 @@ Examples:
   $0 input enter
   $0 reset
   $0 launch-confirm-changes
+  $0 load-settings --user-file testdata/user-no-duplicates.json --repo-file testdata/repo-no-duplicates.json
 EOF
 }
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        health|state|layout|snapshot|logs|input|reset|launch-confirm-changes)
+        health|state|layout|snapshot|logs|input|reset|launch-confirm-changes|load-settings)
             COMMAND="$1"
             shift
             ;;
@@ -71,6 +79,18 @@ while [[ $# -gt 0 ]]; do
         --color)
             COLOR=true
             shift
+            ;;
+        --user-file)
+            USER_FILE="$2"
+            shift 2
+            ;;
+        --repo-file)
+            REPO_FILE="$2"
+            shift 2
+            ;;
+        --local-file)
+            LOCAL_FILE="$2"
+            shift 2
             ;;
         --help|-h)
             usage
@@ -196,6 +216,34 @@ case "$COMMAND" in
             }
         }'
         make_post_request "/launch-confirm-changes" "$mock_data"
+        ;;
+
+    load-settings)
+        # Build JSON payload for load-settings
+        json_parts=()
+
+        if [[ -n "$USER_FILE" ]]; then
+            json_parts+=("\"user_file\":\"$USER_FILE\"")
+        fi
+
+        if [[ -n "$REPO_FILE" ]]; then
+            json_parts+=("\"repo_file\":\"$REPO_FILE\"")
+        fi
+
+        if [[ -n "$LOCAL_FILE" ]]; then
+            json_parts+=("\"local_file\":\"$LOCAL_FILE\"")
+        fi
+
+        # Join parts with commas and build JSON
+        if [[ ${#json_parts[@]} -gt 0 ]]; then
+            json_content=$(printf "%s," "${json_parts[@]}")
+            json_content="${json_content%,}"  # Remove trailing comma
+            json_data="{$json_content}"
+        else
+            json_data="{}"
+        fi
+
+        make_post_request "/load-settings" "$json_data"
         ;;
 
     *)
