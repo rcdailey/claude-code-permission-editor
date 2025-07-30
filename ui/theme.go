@@ -18,9 +18,10 @@ const (
 	ColorCount   = "11"      // Yellow - for count displays
 
 	// UI element colors
-	ColorBorderNormal  = "8" // Gray - for unfocused borders
-	ColorBorderFocused = ColorAccent
-	ColorStatusBar     = "240" // Dark gray background for status bar
+	ColorBorderNormal        = "8" // Gray - for unfocused borders
+	ColorBorderFocused       = ColorAccent
+	ColorBackgroundSecondary = "240" // Dark gray - for status bars, selections, interactive backgrounds
+	ColorTextSecondary       = "244" // Lighter gray - for secondary text, indicators
 )
 
 // Pre-configured styles for common UI patterns
@@ -69,19 +70,19 @@ var (
 	// Status bar style
 	StatusBarStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColorText)).
-			Background(lipgloss.Color(ColorStatusBar)).
+			Background(lipgloss.Color(ColorBackgroundSecondary)).
 			Padding(0, 1)
 
 	// Selection highlighting styles for currently selected item
 	SelectedItemStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("240")).
+				Background(lipgloss.Color(ColorBackgroundSecondary)).
 				Foreground(lipgloss.Color(ColorAccent)).
 				Bold(true).
 				Padding(0, 1)
 
 	// Origin indicator styles for moved permissions
 	OriginIndicatorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("244")).
+				Foreground(lipgloss.Color(ColorTextSecondary)).
 				Italic(true)
 )
 
