@@ -67,13 +67,13 @@ func handleYourEndpoint(ds *DebugServer, w http.ResponseWriter, r *http.Request)
 
 ## Current Endpoints
 
-- `/health` → `health.go` - Health check
-- `/state` → `state.go` - Application state
-- `/snapshot` → `snapshot.go` - Screen capture
-- `/input` → `input.go` - Input injection
-- `/logs` → `logs.go` - Debug events
-- `/reset` → `reset.go` - State reset
-- `/launch-confirm-changes` → `launch-confirm-changes.go` - Screen testing
+- `/health` → `endpoint-health.go` - Health check
+- `/state` → `endpoint-state.go` - Application state
+- `/snapshot` → `endpoint-snapshot.go` - Screen capture
+- `/input` → `endpoint-input.go` - Input injection
+- `/logs` → `endpoint-logs.go` - Debug events
+- `/reset` → `endpoint-reset.go` - State reset
+- `/launch-confirm-changes` → `endpoint-launch-confirm-changes.go` - Screen testing
 
 ## Common Patterns
 

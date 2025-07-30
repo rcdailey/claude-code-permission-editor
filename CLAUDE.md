@@ -91,24 +91,29 @@ execution:
 ### Core Components
 
 - **main.go**: Entry point, command-line parsing, model initialization, and tea.Model wrapper
-- **types/model.go**: Core data structures (Settings, Permission, Duplicate, Model)
+- **types/**: Core data structures and modal definitions
+  - `model.go`: Core data structures (Settings, Permission, Duplicate, Model)
+  - `modal.go`: Modal state and type definitions
 - **settings.go**: Settings file loading, parsing, and git repository detection
 - **ui/**: Pure Bubble Tea + Lipgloss UI module using industry-standard patterns
   - `main.go`: Core UI rendering logic with `lipgloss.JoinVertical()` composition
   - `components.go`: UI components (header, footer, content) with dynamic sizing
-  - `helpers.go`: Key handling and modal rendering using pure state management
+  - `helpers.go`: Key handling and navigation utilities
+  - `modals.go`: Modal rendering and interaction logic
   - `theme.go`: Centralized color palette and style definitions
-- **interfaces.go**: Interface definitions for application components
-- **delegate.go**: Custom list delegate for permissions display
 - **logging.go**: Logging utilities and no-op handler
 - **debug/**: HTTP debug server package for development and debugging
-  - `server.go`: HTTP server setup and endpoint routing
-  - `state.go`: Application state inspection and model access
-  - `capture.go`: Screen content capture and snapshot functionality
-  - `input.go`: Input simulation for testing and debugging
-  - `layout.go`: Layout diagnostics and inspection
-  - `logging.go`: Debug event logging system
-  - `slog_handler.go`: Custom slog handler for debug integration
+  - `server.go`: HTTP server setup and endpoint registration system
+  - `utils.go`: Shared utilities (JSON responses, timestamps, conversions)
+  - `logger.go`: Logging infrastructure and event tracking
+  - Endpoint files (self-registering pattern):
+    - `endpoint-health.go`: Health check endpoint
+    - `endpoint-state.go`: Application state inspection
+    - `endpoint-snapshot.go`: Screen capture and layout diagnostics
+    - `endpoint-input.go`: Input injection with state analysis
+    - `endpoint-logs.go`: Debug event logs retrieval
+    - `endpoint-reset.go`: Application state reset
+    - `endpoint-launch-confirm-changes.go`: Screen testing with mock data
 
 ### Key Data Flow
 
@@ -234,20 +239,12 @@ synchronization for concurrent access to model state.
 
 ### Debug File Organization
 
-Debug package uses prefix-based naming convention for visual separation:
+The debug package follows a self-registering endpoint pattern for clean separation:
 
-- **Endpoint files**: `endpoint-*.go` - HTTP endpoint handlers and related types
-  - `endpoint-health.go` - Health check endpoint
-  - `endpoint-state.go` - Application state inspection
-  - `endpoint-snapshot.go` - Screen capture and layout diagnostics
-  - `endpoint-input.go` - Input injection with state analysis
-  - `endpoint-logs.go` - Debug event logs retrieval
-  - `endpoint-reset.go` - Application state reset
-  - `endpoint-launch-confirm-changes.go` - Screen testing with mock data
-- **Infrastructure files**: No prefix - Core debug server components
-  - `server.go` - HTTP server and endpoint registration system
-  - `utils.go` - Shared utilities (JSON responses, timestamps, conversions)
-  - `logger.go` - Logging infrastructure and slog handler
+- **Endpoint files**: `endpoint-*.go` - Self-registering HTTP endpoint handlers
+- **Infrastructure files**: Core debug server components (`server.go`, `utils.go`, `logger.go`)
+
+See `debug/CLAUDE.md` for detailed debug package architecture and patterns.
 
 ### Debug Endpoint Patterns
 
@@ -274,8 +271,11 @@ Test data is available in `testdata/` directory with sample settings files for a
 ## Go Project Layout
 
 This project follows a simple CLI tool structure with `main.go` in the root and specialized packages
-(`debug/`, `ui/`, `types/`) for focused functionality. The `testdata/` directory contains test
-files, following Go toolchain conventions.
+(`debug/`, `ui/`, `types/`) for focused functionality. Additional support includes:
+
+- `testdata/`: Sample settings files for testing different scenarios
+- `scripts/`: Development and debugging utilities (`dev.sh`, `debug-api.sh`)
+- `docs/`: Project documentation and guides
 
 ### UI Architecture
 
