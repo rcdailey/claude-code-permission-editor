@@ -1,0 +1,10 @@
+{
+  "allow": [
+    "Read",
+    "Write"
+  ],
+  "nested": {
+    "config": true
+  },
+  "someOtherSetting": "value"
+}

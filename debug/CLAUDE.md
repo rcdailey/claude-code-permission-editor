@@ -74,6 +74,7 @@ func handleYourEndpoint(ds *DebugServer, w http.ResponseWriter, r *http.Request)
 - `/logs` → `endpoint-logs.go` - Debug events
 - `/reset` → `endpoint-reset.go` - State reset
 - `/launch-confirm-changes` → `endpoint-launch-confirm-changes.go` - Screen testing
+- `/load-settings` → `endpoint-load-settings.go` - Dynamic settings loading
 
 ## Common Patterns
 

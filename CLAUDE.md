@@ -255,6 +255,9 @@ scripts/debug-api.sh input a
 # Reset application state
 scripts/debug-api.sh reset
 
+# Load settings from different files
+scripts/debug-api.sh load-settings --user-file testdata/user-no-duplicates.json --repo-file testdata/repo-no-duplicates.json --local-file testdata/local-no-duplicates.json
+
 # Use custom host/port
 scripts/debug-api.sh state --host localhost --port 8081
 ```
@@ -283,6 +286,7 @@ Debug endpoints follow consistent naming patterns:
   - Future: `/launch-duplicates`, `/launch-organization`, etc.
 - **State inspection**: `/state`, `/snapshot`, `/logs` - Inspect current application state
 - **Interaction**: `/input`, `/reset` - Send inputs or reset application state
+- **Data loading**: `/load-settings` - Dynamically load settings from specified file paths
 
 ## Testing
 

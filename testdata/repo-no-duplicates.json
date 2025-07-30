@@ -1,0 +1,10 @@
+{
+  "allow": [
+    "LS",
+    "Grep"
+  ],
+  "features": {
+    "enableSomething": false
+  },
+  "repoSpecificSetting": "test-repo"
+}
