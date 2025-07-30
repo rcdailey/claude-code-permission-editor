@@ -73,6 +73,34 @@ execution:
 - **Clarity**: Dedicated confirmation screen reduces cognitive load
 - **Vertical space**: Two-panel main screen fits better in terminal constraints
 
+## Duplicate Resolution Workflow
+
+### Auto-Selection by Priority
+
+Duplicates are automatically pre-selected based on level priority (User > Repo > Local):
+
+- "Bash" at LOCAL and USER → AUTO-SELECT USER
+- "Bash" at LOCAL and REPO → AUTO-SELECT REPO
+- "Bash" at LOCAL, REPO, and USER → AUTO-SELECT USER
+
+This makes duplicate resolution "hands-free" by default, requiring minimal user intervention.
+
+### Two-Phase Resolution Process
+
+1. **Selection Phase**: Duplicates show with auto-selected KeepLevel, user can change with 1/2/3
+2. **Commitment Phase**: User hits ENTER → confirmation modal → actual file updates
+
+### Blocking Logic
+
+- Organization screen is BLOCKED while `len(m.Duplicates) > 0`
+- Duplicates are considered "unresolved" until committed to files (not just assigned KeepLevel)
+- After successful commit, duplicates are removed from model and organization screen becomes accessible
+
+### State Functions
+
+- `hasUnresolvedDuplicates()`: Returns `true` if ANY duplicates exist in model (need commitment)
+- `hasPendingChanges()`: Returns `true` if duplicates have assigned KeepLevel (ready for commit)
+
 ## CRITICAL: Pure Lipgloss Architecture
 
 **ALWAYS use pure Bubble Tea + Lipgloss patterns.** All UI rendering uses industry-standard TUI patterns:

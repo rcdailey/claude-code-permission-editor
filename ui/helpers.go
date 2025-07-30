@@ -731,12 +731,22 @@ func addPermissionToArraySorted(perms []string, permission string) []string {
 	return perms
 }
 
-// hasUnresolvedDuplicates checks if there are any duplicates that haven't been resolved
+// hasUnresolvedDuplicates checks if there are duplicates that need to be committed.
+//
+// Duplicates are auto-assigned KeepLevel values during initialization based on priority
+// (User > Repo > Local). However, they are considered "unresolved" until the user
+// commits them via ENTER → confirmation modal → save to files.
+//
+// The presence of ANY duplicates in m.Duplicates means they need resolution/commitment,
+// regardless of their KeepLevel assignment. Only after successful commit are duplicates
+// removed from m.Duplicates, making the organization screen accessible.
+//
+// Workflow:
+// 1. Duplicates created with auto-selected KeepLevel (highest priority)
+// 2. User optionally changes selections with 1/2/3 keys
+// 3. User hits ENTER → confirmation modal
+// 4. User confirms → duplicates committed to files, m.Duplicates cleared
+// 5. Organization screen becomes accessible, app switches to it
 func hasUnresolvedDuplicates(m *types.Model) bool {
-	for _, dup := range m.Duplicates {
-		if dup.KeepLevel == "" {
-			return true
-		}
-	}
-	return false
+	return len(m.Duplicates) > 0
 }
