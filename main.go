@@ -241,16 +241,16 @@ func createDuplicatesTable(duplicates []types.Duplicate) table.Model {
 	tableStyle := table.DefaultStyles()
 	tableStyle.Header = tableStyle.Header.
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("8")).
+		BorderForeground(lipgloss.Color(ui.ColorBorderNormal)).
 		BorderBottom(true).
 		Bold(true).
-		Foreground(lipgloss.Color("15")). // Bright white text
-		Background(lipgloss.Color("8"))   // Dark gray background
+		Foreground(lipgloss.Color(ui.ColorTitle)) // Bright white text, no background
 
 	tableStyle.Selected = tableStyle.Selected.
-		Foreground(lipgloss.Color("15")).
-		Background(lipgloss.Color("8")).
-		Bold(false)
+		Foreground(lipgloss.Color(ui.ColorAccent)).              // Use theme accent color
+		Background(lipgloss.Color(ui.ColorBackgroundSecondary)). // Use theme secondary background
+		Bold(true)
+		// Match permissions screen selection style
 
 	t.SetStyles(tableStyle)
 
