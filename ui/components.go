@@ -134,17 +134,20 @@ func (c *ContentComponent) renderDuplicatesContent() string {
 		contentWidth = 20
 	}
 
+	if len(c.model.Duplicates) == 0 {
+		emptyMessage := "No duplicate permissions found across levels"
+		return BlockingMessageStyle.
+			Width(contentWidth).
+			Height(c.height).
+			Render(emptyMessage)
+	}
+
 	tableStyle := lipgloss.NewStyle().
 		Width(contentWidth).
 		Height(c.height).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(ColorBorderFocused)). // Use centralized theme
 		Padding(1)
-
-	if len(c.model.Duplicates) == 0 {
-		emptyMessage := "No duplicate permissions found across levels"
-		return tableStyle.Render(emptyMessage)
-	}
 
 	// Use the actual duplicates table from the model
 	tableContent := c.model.DuplicatesTable.View()
@@ -317,16 +320,11 @@ func (c *ContentComponent) renderBlockingMessage() string {
 		contentWidth = 20
 	}
 
-	blockingStyle := lipgloss.NewStyle().
-		Width(contentWidth).
-		Height(c.height).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorBorderFocused)).
-		Padding(1).
-		Align(lipgloss.Center, lipgloss.Center)
-
 	message := "Duplicate permissions must be resolved before organizing permissions.\n\n" +
 		"Use TAB to switch to the Duplicates panel and resolve conflicts first."
 
-	return blockingStyle.Render(message)
+	return BlockingMessageStyle.
+		Width(contentWidth).
+		Height(c.height).
+		Render(message)
 }

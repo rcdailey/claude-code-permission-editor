@@ -84,6 +84,13 @@ var (
 	OriginIndicatorStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color(ColorTextSecondary)).
 				Italic(true)
+
+	// Blocking message style for consistent empty/blocking states across all screens
+	BlockingMessageStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color(ColorBorderFocused)).
+				Padding(1).
+				Align(lipgloss.Center, lipgloss.Center)
 )
 
 // Level-specific styles for consistent color coding
