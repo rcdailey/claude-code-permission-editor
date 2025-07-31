@@ -15,9 +15,17 @@ viewing and managing permissions from:
 
 ## Development Requirements
 
+### Library-First Development Mandate
+
+- **CRITICAL**: NEVER reinvent the wheel; always look for built-in or library-provided functionality
+  to solve a problem.
+- **ALWAYS** check library documentation first before implementing any functionality
+- **PREFER** composition over custom abstraction - wrap library functions rather than replacing them
+- **CREATE** thin helper functions for consistency only, never full custom implementations
+
+### Code Quality & Standards
+
 - Implement go code in an idiomatic way.
-- NEVER reinvent the wheel; always look for built-in or library-provided functionality to solve a
-  problem.
 - Do not make changes to `.golangci.yml` without searching the docs first:
   <https://golangci-lint.run/usage/linters/#revive>
 - Assume user has very little to no knowledge of golang and related tooling.
@@ -94,16 +102,32 @@ This makes duplicate resolution "hands-free" by default, requiring minimal user 
 
 - Organization screen is BLOCKED while `len(m.Duplicates) > 0`
 - Duplicates are considered "unresolved" until committed to files (not just assigned KeepLevel)
-- After successful commit, duplicates are removed from model and organization screen becomes accessible
+- After successful commit, duplicates are removed from model and organization screen becomes
+  accessible
 
 ### State Functions
 
 - `hasUnresolvedDuplicates()`: Returns `true` if ANY duplicates exist in model (need commitment)
 - `hasPendingChanges()`: Returns `true` if duplicates have assigned KeepLevel (ready for commit)
 
-## CRITICAL: Pure Lipgloss Architecture
+## CRITICAL: Library-First Architecture
 
-**ALWAYS use pure Bubble Tea + Lipgloss patterns.** All UI rendering uses industry-standard TUI patterns:
+**ALWAYS leverage existing library functionality before implementing custom solutions.** This
+project follows a strict library-first approach:
+
+### Core Principles
+
+- ✅ REQUIRED: Always use library-provided functionality before implementing custom solutions
+- ✅ REQUIRED: Leverage existing APIs as the primary interface (e.g., lipgloss for layout, Bubble Tea
+  for state)
+- ✅ REQUIRED: Create thin wrapper functions only for consistency, not custom abstractions
+- ❌ FORBIDDEN: Builder patterns or complex abstractions that duplicate library functionality
+- ❌ FORBIDDEN: Custom implementations of functionality already provided by dependencies
+
+### Lipgloss-Specific Requirements
+
+**ALWAYS use pure Bubble Tea + Lipgloss patterns.** All UI rendering uses industry-standard TUI
+patterns:
 
 - ✅ REQUIRED: `lipgloss.JoinVertical()`, `lipgloss.JoinHorizontal()` for layout composition
 - ✅ REQUIRED: Dynamic sizing using `lipgloss.Width()` and `lipgloss.Height()` best practices
@@ -112,7 +136,140 @@ This makes duplicate resolution "hands-free" by default, requiring minimal user 
 
 **Modals/overlays:** Use `lipgloss.Place()` for absolute positioning
 
-**This architecture follows industry-standard TUI application patterns.**
+### Theme Architecture: Nuanced Centralization
+
+**CRITICAL: Follow nuanced centralization principles - not everything belongs in theme.go.**
+
+#### Centralization Decision Rules
+
+**✅ CENTRALIZE in `ui/theme.go`:**
+
+- **Color palette constants** - used across multiple components
+- **Typography scales** - font sizes, weights used by 2+ components
+- **Spacing tokens** - standard margins, padding, border widths
+- **Core interaction states** - focused, selected, disabled styles used across components
+- **Genuinely reusable patterns** - used by 2+ unrelated components
+
+**❌ KEEP LOCAL in component files:**
+
+- **Component-specific styling** - unique to one screen/component
+- **Complex layout logic** - doesn't generalize to other components
+- **Single-use variations** - not part of the design system
+
+#### The Key Principle
+
+**Centralize design tokens and genuinely reusable patterns, not every style declaration.**
+
+**Decision rule**: A style earns centralization when it's used by 2+ unrelated components OR
+represents a core design decision (like color palette).
+
+#### Examples of Proper Theme Architecture
+
+**✅ Good - Proper Centralization:**
+
+```go
+// ui/theme.go - Centralized design tokens
+const (
+    ColorAccent = "#38BDF8"  // Used across multiple components
+    ColorTitle  = "15"       // Used in headers, modals, etc.
+)
+
+var AccentStyle = lipgloss.NewStyle().
+    Foreground(lipgloss.Color(ColorAccent)).
+    Bold(true)
+
+// ui/modals.go - Component uses centralized tokens
+titleStyle := lipgloss.NewStyle().
+    Foreground(lipgloss.Color(ColorTitle)).  // ✅ Uses theme constant
+    Align(lipgloss.Center).
+    Width(contentWidth - 4)                  // ❌ Component-specific calculation
+```
+
+**❌ Bad - Over-Centralization:**
+
+```go
+// ui/theme.go - Don't put single-use styles here
+var SpecificModalTitleStyle = lipgloss.NewStyle().  // ❌ Single-use style
+    Width(56).                                      // ❌ Component-specific width
+    Padding(1, 2).                                  // ❌ Component-specific padding
+    Bold(true)
+
+// ui/modals.go - Component forced to use over-specific style
+title := SpecificModalTitleStyle.Render("Title")   // ❌ Not flexible
+```
+
+**✅ Good - Component-Specific Styling:**
+
+```go
+// ui/modals.go - Keep component-specific styling local
+modalStyle := lipgloss.NewStyle().
+    Width(contentWidth).                            // ✅ Component-specific
+    Foreground(lipgloss.Color(ColorTitle)).         // ✅ Uses theme token
+    Padding(1, 2)                                   // ✅ Component-specific
+```
+
+#### Claude Code Directive
+
+**PROACTIVELY look for centralization opportunities during feature work:**
+
+- Spot duplicated styling patterns across components
+- Extract genuinely reusable styles to theme.go
+- Replace hardcoded colors with theme constants
+- Document reasoning when keeping styles local vs centralizing
+
+#### Real-World Centralization Exemplar
+
+**✅ Excellent - BlockingMessageStyle Implementation:**
+
+```go
+// ui/theme.go - Centralized core styling for blocking messages
+var BlockingMessageStyle = lipgloss.NewStyle().
+    Border(lipgloss.RoundedBorder()).
+    BorderForeground(lipgloss.Color(ColorBorderFocused)).
+    Padding(1).           // Core layout shared across components
+    Align(lipgloss.Center, lipgloss.Center)
+
+// ui/components.go - Components customize layout but reuse core styling
+return BlockingMessageStyle.
+    Width(contentWidth).   // ✅ Component-specific dimensions
+    Height(c.height).      // ✅ Component-specific dimensions
+    Render(message)        // ✅ Component-specific content
+```
+
+**Why this works well:**
+
+- **Core styling centralized**: Border, colors, padding, alignment consistent across components
+- **Layout flexibility preserved**: Components control width, height, content
+- **Genuinely reusable**: Used by duplicates panel and organization panel for similar purposes
+- **Easy to maintain**: Change border style once, affects all blocking messages
+
+### Examples of Library-First Approach
+
+**✅ Good - Library-First:**
+
+```go
+// Use lipgloss composition directly
+content := lipgloss.JoinHorizontal(lipgloss.Top, col1, col2, col3)
+footer := lipgloss.JoinVertical(lipgloss.Left, row1, row2)
+
+// Use lipgloss styling directly
+style := lipgloss.NewStyle().Align(lipgloss.Center).Width(width)
+```
+
+**❌ Bad - Custom Abstraction:**
+
+```go
+// Don't create custom layout managers
+layoutManager := NewLayoutManager()
+layoutManager.AddColumn(col1).AddColumn(col2)
+content := layoutManager.Build()
+
+// Don't create custom styling systems
+footer := NewFooterBuilder().AddAction("ENTER", "Save").Build()
+```
+
+**This architecture follows industry-standard TUI application patterns with zero custom layout
+logic.**
 
 ## Architecture
 
@@ -162,8 +319,10 @@ This makes duplicate resolution "hands-free" by default, requiring minimal user 
 
 ### Terminal UI Development Notes
 
-- **Use Dynamic Sizing**: Always use `lipgloss.Width()` and `lipgloss.Height()` instead of manual calculations
-- **Account for Borders/Padding**: When calculating available space, subtract border + padding overhead
+- **Use Dynamic Sizing**: Always use `lipgloss.Width()` and `lipgloss.Height()` instead of manual
+  calculations
+- **Account for Borders/Padding**: When calculating available space, subtract border + padding
+  overhead
 - **Centralized Colors**: Use theme constants from `ui/theme.go` instead of hardcoded color values
 - **Component-based**: Each UI section (header, content, status, footer) is a separate component
 - **Responsive Layout**: Columns automatically adjust to terminal width using `c.width / 3` pattern
@@ -234,9 +393,6 @@ Use `scripts/debug-api.sh` for easy API access:
 # Get complete application state
 scripts/debug-api.sh state
 
-# Get layout diagnostics
-scripts/debug-api.sh layout
-
 # Capture screen content (ANSI codes stripped by default)
 scripts/debug-api.sh snapshot
 
@@ -282,7 +438,8 @@ See `debug/CLAUDE.md` for detailed debug package architecture and patterns.
 Debug endpoints follow consistent naming patterns:
 
 - **Screen testing**: `/launch-<screen_name>` - Launch specific screens with mock data for testing
-  - `/launch-confirm-changes` - Launch confirmation screen with mock permission moves and duplicate resolutions
+  - `/launch-confirm-changes` - Launch confirmation screen with mock permission moves and duplicate
+    resolutions
   - Future: `/launch-duplicates`, `/launch-organization`, etc.
 - **State inspection**: `/state`, `/snapshot`, `/logs` - Inspect current application state
 - **Interaction**: `/input`, `/reset` - Send inputs or reset application state
