@@ -15,7 +15,6 @@ import (
 	"github.com/charmbracelet/bubbles/v2/table"
 	"github.com/charmbracelet/bubbles/v2/timer"
 	tea "github.com/charmbracelet/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
 )
 
 // Command line flags for testing
@@ -237,22 +236,8 @@ func createDuplicatesTable(duplicates []types.Duplicate) table.Model {
 		table.WithHeight(7),
 	)
 
-	// Apply consistent styling to match permissions panel headers
-	tableStyle := table.DefaultStyles()
-	tableStyle.Header = tableStyle.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color(ui.ColorBorderNormal)).
-		BorderBottom(true).
-		Bold(true).
-		Foreground(lipgloss.Color(ui.ColorTitle)) // Bright white text, no background
-
-	tableStyle.Selected = tableStyle.Selected.
-		Foreground(lipgloss.Color(ui.ColorAccent)).              // Use theme accent color
-		Background(lipgloss.Color(ui.ColorBackgroundSecondary)). // Use theme secondary background
-		Bold(true)
-		// Match permissions screen selection style
-
-	t.SetStyles(tableStyle)
+	// Apply consistent table styling using centralized theme
+	t.SetStyles(ui.CreateTableStyles())
 
 	return t
 }

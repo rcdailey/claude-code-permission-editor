@@ -7,6 +7,7 @@ import (
 	"claude-permissions/debug"
 	"claude-permissions/types"
 
+	"github.com/charmbracelet/bubbles/v2/table"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -151,6 +152,9 @@ func handleDuplicateResolution(m *types.Model, key string) *types.Model {
 
 	// Update the duplicate's keep level
 	m.Duplicates[cursor].KeepLevel = keepLevel
+
+	// Update the table data to reflect the change
+	updateDuplicatesTableData(m)
 
 	return m
 }
@@ -749,4 +753,51 @@ func addPermissionToArraySorted(perms []string, permission string) []string {
 // 5. Organization screen becomes accessible, app switches to it
 func hasUnresolvedDuplicates(m *types.Model) bool {
 	return len(m.Duplicates) > 0
+}
+
+// updateDuplicatesTableData updates the table data to reflect changes in m.Duplicates
+func updateDuplicatesTableData(m *types.Model) {
+	// Get current cursor position to restore it after updating
+	currentCursor := m.DuplicatesTable.Cursor()
+
+	// Update table with new data
+	m.DuplicatesTable = createDuplicatesTableFromData(m.Duplicates)
+
+	// Restore cursor position if valid
+	if currentCursor < len(m.Duplicates) {
+		// Move cursor to the correct position
+		for i := 0; i < currentCursor; i++ {
+			m.DuplicatesTable.MoveDown(1)
+		}
+	}
+}
+
+// createDuplicatesTableFromData creates a table model from duplicates data (UI version)
+func createDuplicatesTableFromData(duplicates []types.Duplicate) table.Model {
+	columns := []table.Column{
+		{Title: "Permission", Width: 30},
+		{Title: "Found In", Width: 25},
+		{Title: "Keep Level", Width: 15},
+	}
+
+	rows := []table.Row{}
+	for _, dup := range duplicates {
+		levelsStr := strings.Join(dup.Levels, ", ")
+		keepLevel := dup.KeepLevel
+		if keepLevel == "" {
+			keepLevel = "None"
+		}
+		rows = append(rows, table.Row{dup.Name, levelsStr, keepLevel})
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(rows),
+		table.WithFocused(true),
+		table.WithHeight(7),
+	)
+
+	// Apply consistent table styling using centralized theme
+	t.SetStyles(CreateTableStyles())
+	return t
 }
