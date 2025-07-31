@@ -4,14 +4,38 @@
 
 Self-registering endpoint system: one endpoint per file, zero-modification addition/removal.
 
+## Essential Debug Commands
+
+```bash
+# Debug API usage (ALWAYS assume server is running)
+scripts/debug-api.sh state          # Get application state
+scripts/debug-api.sh snapshot       # Screen capture (no ANSI)
+scripts/debug-api.sh snapshot --color  # Screen capture with ANSI
+scripts/debug-api.sh logs           # Get debug events (clears buffer)
+scripts/debug-api.sh reset          # Reset application state
+
+# Input simulation
+scripts/debug-api.sh input tab      # Send TAB key
+scripts/debug-api.sh input enter    # Send ENTER key
+scripts/debug-api.sh input up       # Navigation keys
+scripts/debug-api.sh input a        # Letter keys
+
+# Settings loading
+scripts/debug-api.sh load-settings --user-file testdata/user.json --repo-file testdata/repo.json
+
+# IMPORTANT: Supported keys - tab, enter, escape/esc, up, down, left, right, space, a, u, r, l, e, c, q, /
+```
+
 ## Core Principles
 
-### One Endpoint, One File
+### IMPORTANT: One Endpoint, One File
 
-- File name = endpoint path (e.g., `/health` → `health.go`)
-- Complete isolation: handler, types, helpers, registration in single file
+- **YOU MUST** follow file name = endpoint path (e.g., `/health` → `health.go`)
+- **REQUIRED**: Complete isolation - handler, types, helpers, registration in single file
 
-### Self-Registration Pattern
+### CRITICAL: Self-Registration Pattern
+
+**YOU MUST use this exact pattern for all endpoints:**
 
 ```go
 package debug
@@ -27,12 +51,14 @@ func handleEndpointName(ds *DebugServer, w http.ResponseWriter, r *http.Request)
 
 ### Zero-Modification Guarantee
 
-- Add endpoint: Create one file, modify nothing else
-- Remove endpoint: Delete one file, modify nothing else
+- **Add endpoint**: Create one file, modify nothing else
+- **Remove endpoint**: Delete one file, modify nothing else
 
 ## Implementation
 
-### File Template
+### REQUIRED File Template
+
+**YOU MUST use this exact structure for all endpoint files:**
 
 ```go
 package debug
@@ -50,20 +76,20 @@ type YourEndpointResponse struct {
 }
 
 func handleYourEndpoint(ds *DebugServer, w http.ResponseWriter, r *http.Request) {
-    // Keep under 60 lines, extract helpers if needed
+    // IMPORTANT: Keep under 60 lines, extract helpers if needed
 }
 ```
 
-### Code Organization
+### Code Organization Rules
 
-**utils.go (shared):** JSON responses, query parsing, timestamps, type conversions
-**endpoint files:** Handler, types, helpers specific to that endpoint
+- **utils.go (shared)**: JSON responses, query parsing, timestamps, type conversions
+- **endpoint files**: Handler, types, helpers specific to that endpoint
 
-### Quality Requirements
+### CRITICAL Quality Requirements
 
-- Handlers under 60 lines
-- Max 120 character lines
-- Use `writeErrorResponse`, `ds.logger.LogEvent()`
+- **YOU MUST** keep handlers under 60 lines
+- **NEVER** exceed 120 character lines
+- **ALWAYS** use `writeErrorResponse`, `ds.logger.LogEvent()`
 
 ## Current Endpoints
 
@@ -76,9 +102,11 @@ func handleYourEndpoint(ds *DebugServer, w http.ResponseWriter, r *http.Request)
 - `/launch-confirm-changes` → `endpoint-launch-confirm-changes.go` - Screen testing
 - `/load-settings` → `endpoint-load-settings.go` - Dynamic settings loading
 
-## Common Patterns
+## CRITICAL Common Patterns
 
-**Request validation:**
+**ALWAYS use these patterns in every endpoint:**
+
+**Request validation (REQUIRED):**
 
 ```go
 if r.Method != http.MethodPost {
@@ -87,7 +115,7 @@ if r.Method != http.MethodPost {
 }
 ```
 
-**Safe model access:**
+**Safe model access (YOU MUST use mutex):**
 
 ```go
 model := ds.GetModel()
@@ -100,7 +128,7 @@ model.Mutex.RLock()
 model.Mutex.RUnlock()
 ```
 
-**Response:**
+**Response (ALWAYS log events):**
 
 ```go
 ds.logger.LogEvent("endpoint_accessed", map[string]interface{}{"key": "value"})
