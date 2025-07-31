@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss/v2"
+import (
+	"github.com/charmbracelet/bubbles/v2/table"
+	"github.com/charmbracelet/lipgloss/v2"
+)
 
 // Application color palette - centralized theme constants
 const (
@@ -91,6 +94,11 @@ var (
 				BorderForeground(lipgloss.Color(ColorBorderFocused)).
 				Padding(1).
 				Align(lipgloss.Center, lipgloss.Center)
+
+	// Footer style for consistent footer container styling
+	FooterStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(ColorText)).
+			Align(lipgloss.Center)
 )
 
 // Level-specific styles for consistent color coding
@@ -112,3 +120,31 @@ var (
 			Foreground(lipgloss.Color("28")).
 			Italic(true)
 )
+
+// CreateTableStyles returns a configured table.Styles with consistent theming
+// This centralizes table styling used across multiple components
+func CreateTableStyles() table.Styles {
+	tableStyle := table.DefaultStyles()
+
+	// Header styling - consistent across all tables
+	tableStyle.Header = tableStyle.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color(ColorBorderNormal)).
+		BorderBottom(true).
+		Bold(true).
+		Foreground(lipgloss.Color(ColorTitle))
+
+	// Selection styling - consistent across all tables
+	tableStyle.Selected = tableStyle.Selected.
+		Foreground(lipgloss.Color(ColorAccent)).
+		Background(lipgloss.Color(ColorBackgroundSecondary)).
+		Bold(true)
+
+	return tableStyle
+}
+
+// WidthStyle returns a simple lipgloss style with specified width
+// Used by multiple components for consistent width setting
+func WidthStyle(width int) lipgloss.Style {
+	return lipgloss.NewStyle().Width(width)
+}
