@@ -22,6 +22,7 @@ type StateResponse struct {
 // UIState represents the user interface state
 type UIState struct {
 	ActivePanel   string   `json:"active_panel"`
+	CurrentScreen int      `json:"current_screen"`
 	SelectedItems []string `json:"selected_items"`
 	ListPosition  int      `json:"list_position"`
 	FilterText    string   `json:"filter_text"`
@@ -88,7 +89,8 @@ func extractApplicationState(model *types.Model) StateResponse {
 // extractUIState extracts UI-related state from the model
 func extractUIState(model *types.Model) UIState {
 	return UIState{
-		ActivePanel: panelNumberToName(model.ActivePanel), // Direct field access
+		ActivePanel:   panelNumberToName(model.ActivePanel), // Direct field access
+		CurrentScreen: model.CurrentScreen,                  // Direct field access
 		SelectedItems: extractSelectedItems(
 			model,
 		), // Extract from current column selection
