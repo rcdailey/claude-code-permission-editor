@@ -33,19 +33,19 @@ func (sm *SmallModal) RenderModal(width, height int) string {
 	modalStyle := lipgloss.NewStyle().
 		Width(contentWidth).
 		Border(lipgloss.ThickBorder()).
-		BorderForeground(lipgloss.Color("11")).
-		Background(lipgloss.Color("0")).
-		Foreground(lipgloss.Color("15")).
+		BorderForeground(lipgloss.Color(ColorAccent)).
+		Background(lipgloss.Color(ColorBackground)).
+		Foreground(lipgloss.Color(ColorTitle)).
 		Padding(1, 2)
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("11")).
+		Foreground(lipgloss.Color(ColorAccent)).
 		Align(lipgloss.Center).
 		Width(contentWidth - 4) // Account for padding
 
 	bodyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).
+		Foreground(lipgloss.Color(ColorTitle)).
 		Width(contentWidth-4). // Account for padding
 		Padding(1, 0)
 
@@ -58,9 +58,11 @@ func (sm *SmallModal) RenderModal(width, height int) string {
 	title := titleStyle.Render(sm.Title)
 	body := bodyStyle.Render(sm.Body)
 
-	// Use AccentStyle from this package
+	// Use consistent footer formatting
+	confirmAction := formatFooterAction("ENTER", "Confirm")
+	cancelAction := formatFooterAction("ESC", "Cancel")
 	instructions := instructionsStyle.Render(
-		AccentStyle.Render("Y/Enter") + " · Yes  |  " + AccentStyle.Render("N/ESC") + " · No",
+		joinFooterActions([]string{confirmAction, cancelAction}),
 	)
 
 	modalContent := modalStyle.Render(
@@ -99,7 +101,7 @@ func (ccm *ConfirmChangesModal) RenderModal(width, height int) string {
 	// Create title
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("15")).
+		Foreground(lipgloss.Color(ColorTitle)).
 		Align(lipgloss.Center).
 		Width(width).
 		Padding(1)
@@ -114,10 +116,10 @@ func (ccm *ConfirmChangesModal) RenderModal(width, height int) string {
 			Height(height-6).
 			Align(lipgloss.Center, lipgloss.Center).
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("8"))
+			BorderForeground(lipgloss.Color(ColorBorderNormal))
 		content := emptyStyle.Render("No pending changes")
 
-		instructions := AccentStyle.Render("ESC") + " · Return to main screen"
+		instructions := formatFooterAction("ESC", "Return to main screen")
 		instrStyle := lipgloss.NewStyle().
 			Align(lipgloss.Center).
 			Width(width)
@@ -130,19 +132,19 @@ func (ccm *ConfirmChangesModal) RenderModal(width, height int) string {
 		Width(width).
 		Height(height - 6).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
+		BorderForeground(lipgloss.Color(ColorBorderNormal)).
 		Padding(1)
 	content := contentStyle.Render(strings.Join(changeLines, "\n"))
 
-	// Instructions using consistent footer styling
-	row1Keys := []string{
-		AccentStyle.Render("ENTER") + " · Execute all actions",
-		AccentStyle.Render("ESC") + " · Cancel and return",
+	// Instructions using consistent footer formatting
+	row1Actions := []string{
+		formatFooterAction("ENTER", "Confirm"),
+		formatFooterAction("ESC", "Cancel"),
 	}
-	row2Keys := []string{
-		AccentStyle.Render("Q") + " · Quit without saving",
+	row2Actions := []string{
+		formatFooterAction("Q", "Quit without saving"),
 	}
-	instructions := strings.Join(row1Keys, "  |  ") + "\n" + strings.Join(row2Keys, "  |  ")
+	instructions := buildTwoRowFooter(row1Actions, row2Actions)
 	instrStyle := lipgloss.NewStyle().
 		Align(lipgloss.Center).
 		Width(width)

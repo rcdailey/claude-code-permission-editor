@@ -144,46 +144,44 @@ func renderHeaderContent(m *types.Model) string {
 
 // renderFooterContent generates the footer content string with context-sensitive hotkeys
 func renderFooterContent(m *types.Model) string {
-	// Use centralized theme for all keys
-
-	var row1Keys, row2Keys []string
+	var row1Actions, row2Actions []string
 
 	switch m.CurrentScreen {
 	case types.ScreenDuplicates:
-		row1Keys = []string{
-			AccentStyle.Render("TAB") + " · Switch panel",
-			AccentStyle.Render("↑↓") + " · Navigate",
-			AccentStyle.Render("1/2/3") + " · Keep in LOCAL/REPO/USER",
+		row1Actions = []string{
+			formatFooterAction("TAB", "Switch panel"),
+			formatFooterAction("↑↓", "Navigate"),
 		}
-		row2Keys = []string{
-			AccentStyle.Render("ENTER") + " · Save & continue",
-			AccentStyle.Render("ESC") + " · Cancel/exit",
+		row2Actions = []string{
+			formatFooterAction("ENTER", "Save"),
+			formatFooterAction("ESC", "Reset changes"),
+			formatFooterAction("1/2/3", "Keep in LOCAL/REPO/USER"),
 		}
 	case types.ScreenOrganization:
-		row1Keys = []string{
-			AccentStyle.Render("TAB") + " · Switch panel",
-			AccentStyle.Render("↑↓") + " · Navigate within column",
-			AccentStyle.Render("←→") + " · Switch between columns",
+		row1Actions = []string{
+			formatFooterAction("TAB", "Switch panel"),
+			formatFooterAction("↑↓", "Navigate within column"),
+			formatFooterAction("←→", "Switch between columns"),
 		}
-		row2Keys = []string{
-			AccentStyle.Render("1/2/3") + " · Move to LOCAL/REPO/USER",
-			AccentStyle.Render("ENTER") + " · Save & exit",
-			AccentStyle.Render("ESC") + " · Reset changes",
+		row2Actions = []string{
+			formatFooterAction("ENTER", "Save"),
+			formatFooterAction("ESC", "Reset changes"),
+			formatFooterAction("1/2/3", "Move to LOCAL/REPO/USER"),
 		}
 	default:
 		// Generic footer
-		row1Keys = []string{
-			AccentStyle.Render("TAB") + " · Switch panel",
-			AccentStyle.Render("↑↓") + " · Navigate",
+		row1Actions = []string{
+			formatFooterAction("TAB", "Switch panel"),
+			formatFooterAction("↑↓", "Navigate"),
 		}
-		row2Keys = []string{
-			AccentStyle.Render("SPACE") + " · Select",
-			AccentStyle.Render("ENTER") + " · Confirm",
-			AccentStyle.Render("Q") + " · Quit",
+		row2Actions = []string{
+			formatFooterAction("SPACE", "Select"),
+			formatFooterAction("ENTER", "Confirm"),
+			formatFooterAction("Q", "Quit"),
 		}
 	}
 
-	return strings.Join(row1Keys, "  |  ") + "\n" + strings.Join(row2Keys, "  |  ")
+	return buildTwoRowFooter(row1Actions, row2Actions)
 }
 
 // renderStatusBarContent generates the status bar with contextual information

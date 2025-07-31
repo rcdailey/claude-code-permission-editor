@@ -41,7 +41,7 @@ func (h *HeaderComponent) View() string {
 	}
 	// Return content as-is since renderHeaderContent already applies styling
 	// Just ensure consistent width
-	style := lipgloss.NewStyle().Width(h.width)
+	style := WidthStyle(h.width)
 	return style.Render(h.content)
 }
 
@@ -70,7 +70,7 @@ func (f *FooterComponent) View() string {
 	}
 	// Return content as-is since renderFooterContent already applies styling
 	// Just ensure consistent width
-	style := lipgloss.NewStyle().Width(f.width)
+	style := WidthStyle(f.width)
 	return style.Render(f.content)
 }
 
@@ -327,4 +327,23 @@ func (c *ContentComponent) renderBlockingMessage() string {
 		Width(contentWidth).
 		Height(c.height).
 		Render(message)
+}
+
+// Footer helper functions for consistent formatting across all screens
+
+// formatFooterAction formats a single key-action pair using centralized styling
+func formatFooterAction(key, description string) string {
+	return AccentStyle.Render(key) + " · " + description
+}
+
+// joinFooterActions joins multiple footer actions with consistent separators
+func joinFooterActions(actions []string) string {
+	return strings.Join(actions, "  |  ")
+}
+
+// buildTwoRowFooter creates a two-row footer using lipgloss composition
+func buildTwoRowFooter(row1Actions, row2Actions []string) string {
+	row1 := joinFooterActions(row1Actions)
+	row2 := joinFooterActions(row2Actions)
+	return lipgloss.JoinVertical(lipgloss.Left, row1, row2)
 }
